@@ -130,11 +130,13 @@ export default function Home() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-background text-on-background">
+      <main className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_42%),radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_38%),radial-gradient(circle_at_bottom,rgba(124,58,237,0.16),transparent_42%),hsl(var(--background))] text-on-background">
         {/* Hero Section */}
         <section className="relative min-h-[90vh] flex flex-col items-center justify-center px-4 sm:px-8 pt-28 pb-20">
           <div className="absolute inset-0 -z-10 overflow-hidden">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-150 h-150 bg-primary/5 rounded-full blur-[120px]"></div>
+            <div className="absolute top-[46%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-150 h-150 bg-primary/10 rounded-full blur-[120px]"></div>
+            <div className="absolute top-24 left-[16%] w-72 h-72 rounded-full bg-emerald-500/10 blur-[100px]"></div>
+            <div className="absolute bottom-24 right-[14%] w-80 h-80 rounded-full bg-blue-500/12 blur-[110px]"></div>
           </div>
 
           <div className="text-center max-w-4xl reveal-on-scroll">

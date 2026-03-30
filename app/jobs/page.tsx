@@ -93,21 +93,24 @@ export default function JobsPage() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-background pt-20 pb-16 px-4 sm:px-8">
+      <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.14),transparent_45%),radial-gradient(circle_at_top_right,rgba(245,158,11,0.12),transparent_42%),hsl(var(--background))] pt-20 pb-16 px-4 sm:px-8">
         <div className="max-w-5xl mx-auto">
           {/* Header */}
-          <header className="mb-10">
-            <div className="flex items-center gap-2 mb-2">
-              <Link href="/" className="text-on-surface-variant hover:text-primary text-sm transition-colors">Home</Link>
-              <span className="text-on-surface-variant/50">/</span>
-              <span className="text-sm text-primary font-medium">Jobs</span>
+          <header className="mb-10 relative overflow-hidden rounded-3xl border border-amber-500/20 bg-linear-to-br from-amber-950/55 via-orange-950/35 to-surface-container p-6 sm:p-8">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(251,191,36,0.2),transparent_44%)]" />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-2">
+                <Link href="/" className="text-amber-100/70 hover:text-amber-300 text-sm transition-colors">Home</Link>
+                <span className="text-amber-100/40">/</span>
+                <span className="text-sm text-amber-300 font-medium">Jobs</span>
+              </div>
+              <h1 className="font-headline text-4xl sm:text-5xl font-extrabold tracking-tighter text-white leading-[0.9]">
+                Career <span className="bg-linear-to-r from-amber-300 via-orange-300 to-yellow-300 bg-clip-text text-transparent italic">Opportunities</span>
+              </h1>
+              <p className="text-sm text-amber-100/75 mt-3 max-w-lg">
+                Discover jobs from India and around the world. Powered by Adzuna.
+              </p>
             </div>
-            <h1 className="font-headline text-4xl sm:text-5xl font-extrabold tracking-tighter text-on-surface leading-[0.9]">
-              Career <span className="text-gradient italic">Opportunities</span>
-            </h1>
-            <p className="text-sm text-on-surface-variant mt-3 max-w-lg">
-              Discover jobs from India and around the world. Powered by Adzuna.
-            </p>
           </header>
 
           {/* Search & Filters */}
@@ -139,7 +142,7 @@ export default function JobsPage() {
                 </select>
                 <Button
                   type="submit"
-                  className="bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-xl text-sm px-8 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
+                  className="bg-linear-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-xl text-sm px-8 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
                 >
                   Search Jobs
                 </Button>
@@ -267,7 +270,7 @@ export default function JobsPage() {
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          <Button className="bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-lg text-sm px-6 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all gap-1.5">
+                          <Button className="bg-linear-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-lg text-sm px-6 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all gap-1.5">
                             Apply Now
                             <span className="material-symbols-outlined text-sm">open_in_new</span>
                           </Button>

@@ -391,21 +391,24 @@ function CommunityContent() {
           <div className="max-w-5xl mx-auto w-full">
             {/* Header */}
             <div className="mb-10">
-              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+              <div className="relative overflow-hidden rounded-3xl border border-emerald-500/20 bg-linear-to-br from-emerald-950/60 via-teal-950/40 to-surface-container p-6 sm:p-8 mb-6">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.22),transparent_45%)]" />
+                <div className="relative flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                 <div>
-                  <h1 className="font-headline text-4xl sm:text-5xl font-extrabold tracking-tighter text-on-surface">
-                    Community<span className="text-gradient"> Feed</span>
+                  <h1 className="font-headline text-4xl sm:text-5xl font-extrabold tracking-tighter text-white">
+                    Community<span className="bg-linear-to-r from-emerald-300 via-teal-300 to-cyan-300 bg-clip-text text-transparent"> Feed</span>
                   </h1>
-                  <p className="text-on-surface-variant mt-2 text-sm max-w-lg">
+                  <p className="text-emerald-100/75 mt-2 text-sm max-w-lg">
                     Discover insights, share knowledge, and connect with creators building the future.
                   </p>
                 </div>
                 <Link href="/editor">
-                  <Button className="bg-linear-to-r from-primary to-primary-container text-on-primary-fixed rounded-full font-bold text-sm px-6 gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:scale-[1.02] transition-all">
+                  <Button className="bg-linear-to-r from-emerald-500 to-teal-500 text-white rounded-full font-bold text-sm px-6 gap-2 shadow-lg shadow-emerald-900/30 hover:shadow-emerald-600/25 hover:scale-[1.02] transition-all">
                     <span className="material-symbols-outlined text-base">edit_note</span>
                     Write a Post
                   </Button>
                 </Link>
+                </div>
               </div>
 
               {/* Search Bar */}

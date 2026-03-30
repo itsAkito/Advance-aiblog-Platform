@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -737,119 +736,196 @@ export function example(input: string) {
   return (
     <ProtectedRoute>
       <Navbar />
-      <div className="flex min-h-screen bg-background pt-16">
+      <div className="flex min-h-screen bg-[#1e1e1e] pt-16">
         {/* Main Editor */}
         <div className={`flex-1 flex flex-col ${showAISidebar ? "lg:mr-80" : ""} ${showPreview ? "lg:mr-96" : ""} transition-all`}>
-          {/* Toolbar */}
-          <div className="sticky top-16 z-30 bg-surface-container-low/80 backdrop-blur-xl border-b border-outline-variant/10 px-3 sm:px-6 py-3 flex items-center justify-between gap-3">
+
+          {/* WordPress-style top bar: back + title + publish buttons */}
+          <div className="sticky top-16 z-30 flex items-center justify-between gap-3 border-b border-white/10 bg-[#23282d] px-4 py-2.5">
             <div className="flex items-center gap-2 min-w-0">
-              <Button variant="ghost" size="icon" onClick={() => router.back()} className="text-on-surface-variant">
+              <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8 text-zinc-300 hover:text-white hover:bg-white/10">
                 <span className="material-symbols-outlined text-lg">arrow_back</span>
               </Button>
-              <Separator orientation="vertical" className="h-5" />
-              <TooltipProvider delayDuration={300}>
-                <div className="flex gap-0.5 overflow-x-auto no-scrollbar">
-                  {formatActions.map((action) =>
-                    action.type === "popover" ? (
-                      <Popover key={action.icon}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-on-surface-variant hover:text-on-surface"
-                          >
-                            <span className="material-symbols-outlined text-[18px]">{action.icon}</span>
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48">
-                          <div className="grid gap-2">
-                            {action.items?.map((item) => (
-                              <Button
-                                key={item.label}
-                                variant="ghost"
-                                onClick={item.action}
-                                className="justify-start"
-                              >
-                                {item.label}
-                              </Button>
-                            ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    ) : (
-                      <Tooltip key={action.icon}>
-                        <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={action.action}
-                            className="h-8 w-8 text-on-surface-variant hover:text-on-surface"
-                          >
-                            <span className="material-symbols-outlined text-[18px]">{action.icon}</span>
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="text-xs">{action.label}</TooltipContent>
-                      </Tooltip>
-                    )
-                  )}
-                </div>
-              </TooltipProvider>
+              <span className="hidden text-sm font-medium text-zinc-400 sm:block">Add a New Post</span>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <Badge variant="outline" className="text-xs text-on-surface-variant">{wordCount} words &bull; {readTime} min read</Badge>
               {saveStatus === "saving" && (
                 <span className="text-xs text-yellow-400 flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse"></span>
-                  Saving...
+                  <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse"></span>Saving...
                 </span>
               )}
               {saveStatus === "saved" && (
                 <span className="text-xs text-green-400 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-sm">check</span>
-                  Saved
+                  <span className="material-symbols-outlined text-sm">check</span>Saved
                 </span>
               )}
+              <Badge variant="outline" className="hidden border-white/20 text-xs text-zinc-400 sm:flex">{wordCount} words</Badge>
               <Button
                 variant={showPreview ? "secondary" : "ghost"}
-                size="icon"
+                size="sm"
                 onClick={() => setShowPreview(!showPreview)}
-                className={showPreview ? "bg-primary/10 text-primary" : "text-on-surface-variant"}
-                title="Toggle Preview Mode"
+                className={`h-8 gap-1.5 text-xs ${showPreview ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" : "text-zinc-400 hover:text-white hover:bg-white/10"}`}
               >
-                <span className="material-symbols-outlined text-[18px]">visibility</span>
+                <span className="material-symbols-outlined text-[16px]">visibility</span>
+                <span className="hidden sm:inline">Preview</span>
               </Button>
               <Button
                 variant={showAISidebar ? "secondary" : "ghost"}
-                size="icon"
+                size="sm"
                 onClick={() => setShowAISidebar(!showAISidebar)}
-                className={showAISidebar ? "bg-primary/10 text-primary" : "text-on-surface-variant"}
+                className={`h-8 gap-1.5 text-xs ${showAISidebar ? "bg-violet-500/20 text-violet-300 border border-violet-500/30" : "text-zinc-400 hover:text-white hover:bg-white/10"}`}
               >
-                <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
+                <span className="hidden sm:inline">AI</span>
               </Button>
               <Button
                 variant={showCollaboratorBlock ? "secondary" : "ghost"}
-                size="icon"
+                size="sm"
                 onClick={() => setShowCollaboratorBlock(!showCollaboratorBlock)}
-                className={showCollaboratorBlock ? "bg-primary/10 text-primary" : "text-on-surface-variant"}
-                title="Toggle Collaboration Panel"
+                className={`h-8 gap-1.5 text-xs ${showCollaboratorBlock ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "text-zinc-400 hover:text-white hover:bg-white/10"}`}
               >
-                <span className="material-symbols-outlined text-[18px]">group</span>
+                <span className="material-symbols-outlined text-[16px]">group</span>
+                <span className="hidden sm:inline">Team</span>
               </Button>
               <Button
                 onClick={handlePublish}
                 disabled={loading}
-                className="bg-linear-to-r from-primary to-primary-container text-on-primary-fixed font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
+                size="sm"
+                className="h-8 bg-blue-600 text-white font-semibold hover:bg-blue-500 shadow-lg shadow-blue-900/40"
               >
                 {loading ? "Publishing..." : isEditing ? "Update" : "Publish"}
               </Button>
             </div>
           </div>
 
-          {/* Editor Content - WordPress style document layout */}
-          <div className="flex-1 max-w-3xl mx-auto w-full px-4 sm:px-8 py-12">
+          {/* WordPress Add Media / Visual|Text bar */}
+          <div className="sticky top-28 z-30 flex items-center justify-between gap-2 border-b border-white/10 bg-[#23282d] px-4 py-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <label className="flex cursor-pointer items-center gap-1.5 rounded border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-zinc-300 hover:bg-white/10 hover:text-white transition-colors">
+                <span className="material-symbols-outlined text-[15px] text-blue-400">add_photo_alternate</span>
+                Add Media
+                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploadingImage} />
+              </label>
+              <button
+                onClick={() => setShowCollaboratorBlock(!showCollaboratorBlock)}
+                className="flex items-center gap-1.5 rounded border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-zinc-300 hover:bg-white/10 hover:text-white transition-colors"
+              >
+                <span className="material-symbols-outlined text-[15px] text-emerald-400">group_add</span>
+                Collaborate
+              </button>
+              {writingTemplates.slice(0, 3).map((template) => (
+                <button
+                  key={template.id}
+                  onClick={() => applyTemplate(template.id)}
+                  className="flex items-center gap-1 rounded border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-zinc-400 hover:bg-white/10 hover:text-white transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[13px]">description</span>
+                  {template.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center">
+              <button
+                onClick={() => setShowPreview(false)}
+                className={`rounded-l border border-white/15 px-3 py-1 text-xs font-medium transition-colors ${!showPreview ? "bg-white/15 text-white" : "bg-transparent text-zinc-400 hover:text-white"}`}
+              >
+                Visual
+              </button>
+              <button
+                onClick={() => setShowPreview(true)}
+                className={`rounded-r border-y border-r border-white/15 px-3 py-1 text-xs font-medium transition-colors ${showPreview ? "bg-white/15 text-white" : "bg-transparent text-zinc-400 hover:text-white"}`}
+              >
+                Preview
+              </button>
+            </div>
+          </div>
+
+          {/* WordPress-style format toolbar */}
+          <div className="sticky top-[calc(64px+46px+40px)] z-30 border-b border-white/10 bg-[#2c2c2c]">
+            {/* Row 1: Paragraph dropdown + main format buttons */}
+            <div className="flex flex-wrap items-center gap-0.5 px-3 py-1.5 border-b border-white/5">
+              {/* Paragraph/Heading dropdown */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex h-7 items-center gap-1 rounded px-2 text-xs font-medium text-zinc-300 hover:bg-white/10 border border-white/15 mr-1">
+                    Paragraph <span className="material-symbols-outlined text-[14px]">expand_more</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-44 bg-[#2c2c2c] border-white/15 p-1">
+                  {[["Paragraph", ""], ["Heading 1", "\n# "], ["Heading 2", "\n## "], ["Heading 3", "\n### "], ["Heading 4", "\n#### "]].map(([lbl, md]) => (
+                    <button
+                      key={lbl}
+                      onClick={() => md ? insertFormat(md, "") : null}
+                      className="w-full text-left rounded px-3 py-1.5 text-sm text-zinc-200 hover:bg-white/10"
+                    >{lbl}</button>
+                  ))}
+                </PopoverContent>
+              </Popover>
+              <TooltipProvider delayDuration={300}>
+                {[
+                  { icon: "format_bold", label: "Bold", action: () => insertFormat("**", "**") },
+                  { icon: "format_italic", label: "Italic", action: () => insertFormat("*", "*") },
+                  { icon: "format_strikethrough", label: "Strikethrough", action: () => insertFormat("~~", "~~") },
+                  { icon: "format_list_bulleted", label: "Bullet List", action: () => insertFormat("\n- ", "") },
+                  { icon: "format_list_numbered", label: "Numbered List", action: () => insertFormat("\n1. ", "") },
+                  { icon: "format_quote", label: "Blockquote", action: () => insertFormat("\n> ", "") },
+                  { icon: "format_align_left", label: "Align Left", action: () => insertFormat("", "") },
+                  { icon: "format_align_center", label: "Center", action: () => insertFormat("<div align='center'>\n", "\n</div>") },
+                  { icon: "format_align_right", label: "Align Right", action: () => insertFormat("<div align='right'>\n", "\n</div>") },
+                  { icon: "link", label: "Link", action: () => insertFormat("[", "](url)") },
+                  { icon: "table", label: "Table", action: () => insertFormat("\n| Column 1 | Column 2 |\n| --- | --- |\n| Value 1 | Value 2 |\n", "") },
+                  { icon: "checklist", label: "Checklist", action: () => insertFormat("\n- [ ] Task 1\n- [ ] Task 2\n", "") },
+                ].map((btn) => (
+                  <Tooltip key={btn.icon}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={btn.action}
+                        className="flex h-7 w-7 items-center justify-center rounded text-zinc-300 hover:bg-white/15 hover:text-white transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[17px]">{btn.icon}</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs bg-black text-white">{btn.label}</TooltipContent>
+                  </Tooltip>
+                ))}
+              </TooltipProvider>
+            </div>
+            {/* Row 2: Secondary toolbar */}
+            <div className="flex flex-wrap items-center gap-0.5 px-3 py-1">
+              <TooltipProvider delayDuration={300}>
+                {[
+                  { icon: "format_clear", label: "Clear Format", action: () => insertFormat("", "") },
+                  { icon: "horizontal_rule", label: "Divider", action: () => insertFormat("\n\n---\n\n", "") },
+                  { icon: "code", label: "Inline Code", action: () => insertFormat("`", "`") },
+                  { icon: "code_blocks", label: "Code Block", action: () => insertFormat("\n```\n", "\n```\n") },
+                  { icon: "undo", label: "Undo", action: () => document.execCommand("undo") },
+                  { icon: "redo", label: "Redo", action: () => document.execCommand("redo") },
+                  { icon: "help", label: "Markdown Help", action: () => window.open("https://www.markdownguide.org/basic-syntax/", "_blank") },
+                ].map((btn) => (
+                  <Tooltip key={btn.icon}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={btn.action}
+                        className="flex h-6 w-6 items-center justify-center rounded text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">{btn.icon}</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs bg-black text-white">{btn.label}</TooltipContent>
+                  </Tooltip>
+                ))}
+              </TooltipProvider>
+              <span className="ml-auto text-[11px] text-zinc-500">{readTime} min read</span>
+            </div>
+          </div>
+
+          {/* Editor Content - WordPress dark document layout */}
+          <div className="flex-1 bg-[#1e1e1e] py-8 px-4 sm:px-10">
+            <div className="mx-auto max-w-3xl">
             {error && (
-              <div className="mb-4 p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm flex items-center gap-2">
+              <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 text-sm flex items-center gap-2">
                 <span className="material-symbols-outlined text-sm">error</span>
                 {error}
                 <button onClick={() => setError("")} className="ml-auto"><span className="material-symbols-outlined text-sm">close</span></button>
@@ -992,22 +1068,20 @@ export function example(input: string) {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Add title"
-              className="w-full bg-transparent text-4xl md:text-5xl font-extrabold font-headline tracking-tighter text-on-surface placeholder:text-on-surface-variant/25 outline-none mb-2 leading-tight border-b-2 border-outline-variant/20 pb-4 focus:border-primary/40 transition-colors"
+              className="w-full bg-transparent text-4xl md:text-5xl font-extrabold font-headline tracking-tighter text-white placeholder:text-zinc-700 outline-none mb-3 leading-tight border-b-2 border-blue-500/40 pb-4 focus:border-blue-400 transition-colors"
             />
 
-            <div className="mb-6 flex flex-wrap items-center gap-2 pt-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/50">Template:</span>
+            <div className="mb-5 flex flex-wrap items-center gap-2 pt-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-600">Template:</span>
               {writingTemplates.map((template) => (
-                <Button
+                <button
                   key={template.id}
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs border border-outline-variant/20 text-on-surface-variant hover:text-on-surface hover:bg-surface-container"
                   onClick={() => applyTemplate(template.id)}
+                  className="rounded border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-colors"
                 >
                   {template.label}
-                </Button>
+                </button>
               ))}
             </div>
 
@@ -1015,15 +1089,15 @@ export function example(input: string) {
               value={excerpt}
               onChange={(e) => setExcerpt(e.target.value)}
               placeholder="Add a brief excerpt or subtitle..."
-              className="w-full bg-transparent text-lg text-on-surface-variant/70 placeholder:text-on-surface-variant/25 outline-none mb-6 italic"
+              className="w-full bg-transparent text-lg text-zinc-400 placeholder:text-zinc-700 outline-none mb-6 italic"
             />
             {/* Cover Image Preview */}
             {coverImageUrl && (
-              <div className="relative mb-6 rounded-xl overflow-hidden group border border-outline-variant/20">
+              <div className="relative mb-6 rounded-lg overflow-hidden group border border-white/10">
                 <img src={coverImageUrl} alt="Cover" className="w-full h-52 object-cover" />
                 <button
                   onClick={() => setCoverImageUrl("")}
-                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <span className="material-symbols-outlined text-sm">close</span>
                 </button>
@@ -1031,51 +1105,56 @@ export function example(input: string) {
             )}
 
             <div className="mb-3 flex flex-wrap gap-1.5">
-              <span className="self-center text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/40 mr-1">Quick Insert:</span>
-              <Button type="button" variant="ghost" size="sm" className="h-6 text-[11px] border border-outline-variant/20 text-on-surface-variant/60 hover:text-on-surface" onClick={() => insertFormat("\n## Key Takeaways\n", "")}>Key Takeaways</Button>
-              <Button type="button" variant="ghost" size="sm" className="h-6 text-[11px] border border-outline-variant/20 text-on-surface-variant/60 hover:text-on-surface" onClick={() => insertFormat("\n### Quick Summary\n", "")}>Summary</Button>
-              <Button type="button" variant="ghost" size="sm" className="h-6 text-[11px] border border-outline-variant/20 text-on-surface-variant/60 hover:text-on-surface" onClick={() => insertFormat("\n- [ ] Task 1\n- [ ] Task 2\n", "")}>Checklist</Button>
-              <Button type="button" variant="ghost" size="sm" className="h-6 text-[11px] border border-outline-variant/20 text-on-surface-variant/60 hover:text-on-surface" onClick={() => insertFormat("\n| Metric | Result |\n| --- | --- |\n| Value | Value |\n", "")}>Table</Button>
+              <span className="self-center text-[10px] font-bold uppercase tracking-wider text-zinc-700 mr-1">Insert:</span>
+              <button onClick={() => insertFormat("\n## Key Takeaways\n", "")} className="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-white/10 transition-colors">Key Takeaways</button>
+              <button onClick={() => insertFormat("\n### Summary\n", "")} className="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-white/10 transition-colors">Summary</button>
+              <button onClick={() => insertFormat("\n- [ ] Task 1\n- [ ] Task 2\n", "")} className="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-white/10 transition-colors">Checklist</button>
+              <button onClick={() => insertFormat("\n| Metric | Result |\n| --- | --- |\n| Value | Value |\n", "")} className="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-white/10 transition-colors">Table</button>
+              <button onClick={() => insertFormat("\n> [!NOTE] ", "")} className="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-white/10 transition-colors">Callout</button>
             </div>
 
-            <textarea
-              ref={contentRef}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Start writing... Type / for commands, or use the toolbar above. Markdown supported."
-              className="w-full flex-1 min-h-[65vh] bg-transparent text-on-surface placeholder:text-on-surface-variant/25 outline-none resize-none text-base leading-[1.9] font-mono tracking-normal"
-            />
-            {showSlashCommand && (
+            {/* WordPress-style bordered editor box */}
+            <div className="rounded-sm border border-white/10 overflow-hidden">
+              <textarea
+                ref={contentRef}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Start writing your story here... (Type / for slash commands, Markdown supported)"
+                className="w-full min-h-[55vh] bg-[#2a2a2a] p-5 text-zinc-100 placeholder:text-zinc-600 outline-none resize-none text-base leading-[1.85] font-mono"
+              />
+              {showSlashCommand && (
                 <Popover open={showSlashCommand} onOpenChange={setShowSlashCommand}>
-                    <PopoverTrigger asChild>
-                        <div style={{ top: slashCommandPosition.top, left: slashCommandPosition.left, position: 'absolute' }} />
-                    </PopoverTrigger>
-                    <PopoverContent className="w-48">
-                        <div className="grid gap-2">
-                        {slashCommands.map((command) => (
-                            <Button
-                            key={command.label}
-                            variant="ghost"
-                            onClick={() => {
-                                command.action();
-                                setShowSlashCommand(false);
-                            }}
-                            className="justify-start"
-                            >
-                            {command.label}
-                            </Button>
-                        ))}
-                        </div>
-                    </PopoverContent>
+                  <PopoverTrigger asChild>
+                    <div style={{ top: slashCommandPosition.top, left: slashCommandPosition.left, position: "absolute" }} />
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 bg-[#2c2c2c] border-white/15 p-1">
+                    <div className="grid gap-1">
+                      {slashCommands.map((command) => (
+                        <button
+                          key={command.label}
+                          onClick={() => { command.action(); setShowSlashCommand(false); }}
+                          className="w-full text-left rounded px-3 py-1.5 text-sm text-zinc-200 hover:bg-white/10"
+                        >
+                          {command.label}
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
                 </Popover>
-            )}
+              )}
+              {/* WordPress-style bottom word count bar */}
+              <div className="border-t border-white/10 bg-[#232323] px-4 py-2 flex items-center justify-between">
+                <span className="text-[11px] text-zinc-500">Word count: {wordCount}</span>
+                <span className="text-[11px] text-zinc-600">{readTime} min read</span>
+              </div>
+            </div>
+            </div>
           </div>
-        </div>
 
         {/* AI Assistant Sidebar */}
         {showAISidebar && (
-          <aside className="hidden lg:flex fixed right-0 top-16 w-80 h-[calc(100vh-64px)] flex-col bg-surface-container-low border-l border-outline-variant/10 z-20">
+          <aside className="hidden lg:flex fixed right-0 top-16 w-80 h-[calc(100vh-64px)] flex-col bg-[#23282d] border-l border-white/10 z-20">
             <div className="p-6 border-b border-outline-variant/10">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
