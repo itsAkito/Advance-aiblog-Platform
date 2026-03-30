@@ -23,7 +23,7 @@ export async function POST() {
         status: 200,
         // Clear any server-side cookies if used
         headers: {
-          'Set-Cookie': 'adminToken=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax'
+          'Set-Cookie': 'adminToken=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax, admin_session_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax'
         }
       }
     );

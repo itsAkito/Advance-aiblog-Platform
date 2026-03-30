@@ -5,14 +5,12 @@ import Link from "next/link";
 
 interface ConsentModalProps {
   isOpen: boolean;
-  userRole?: "user" | "admin";
   onAccept: () => void;
   onDeny: () => void;
 }
 
 export default function ConsentModal({
   isOpen,
-  userRole = "user",
   onAccept,
   onDeny,
 }: ConsentModalProps) {
@@ -37,8 +35,8 @@ export default function ConsentModal({
         </h2>
 
         {/* Description */}
-        <p className="text-sm text-on-surface-variant text-center mb-4">
-          You're about to enter your {userRole} dashboard. Please review our terms before proceeding.
+        <p className="text-sm text-on-surface-variant text-center mb-6">
+          To get started, please review and accept our terms and privacy policy.
         </p>
 
         {/* Consent Items */}
@@ -48,6 +46,7 @@ export default function ConsentModal({
               type="checkbox"
               defaultChecked
               className="mt-1 w-4 h-4 rounded cursor-pointer accent-primary"
+              readOnly
             />
             <span className="text-xs text-on-surface-variant group-hover:text-on-surface transition-colors">
               I agree to the{" "}
@@ -61,6 +60,7 @@ export default function ConsentModal({
               type="checkbox"
               defaultChecked
               className="mt-1 w-4 h-4 rounded cursor-pointer accent-primary"
+              readOnly
             />
             <span className="text-xs text-on-surface-variant group-hover:text-on-surface transition-colors">
               I understand that my data will be processed according to our policies
@@ -71,9 +71,10 @@ export default function ConsentModal({
               type="checkbox"
               defaultChecked
               className="mt-1 w-4 h-4 rounded cursor-pointer accent-primary"
+              readOnly
             />
             <span className="text-xs text-on-surface-variant group-hover:text-on-surface transition-colors">
-              I accept the Terms of Service and understand the {userRole} responsibilities
+              I accept the Terms of Service
             </span>
           </label>
         </div>

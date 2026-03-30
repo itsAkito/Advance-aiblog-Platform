@@ -2,6 +2,45 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { auth } from '@clerk/nextjs/server';
 
+function isSchemaError(error: any): boolean {
+  const message = String(error?.message || '').toLowerCase();
+  return message.includes('does not exist') || message.includes('could not find');
+}
+
+function isMissingColumnError(error: any, column: string): boolean {
+  const message = String(error?.message || '').toLowerCase();
+  return message.includes(`column`) && message.includes(column.toLowerCase());
+}
+
+async function verifyAdmin(request: NextRequest): Promise<string | null> {
+  try {
+    const { userId } = await auth();
+    if (userId) {
+      const supabase = await createClient();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, role')
+        .eq('id', userId)
+        .maybeSingle();
+      if (profile?.role === 'admin') return userId;
+    }
+  } catch {
+    // fallback to cookie auth
+  }
+
+  const adminSessionToken = request.cookies.get('admin_session_token')?.value;
+  if (adminSessionToken) {
+    const adminEmail = (process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || '').toLowerCase();
+    const decoded = Buffer.from(adminSessionToken, 'base64').toString('utf8');
+    const [email] = decoded.split(':');
+    if (email?.toLowerCase() === adminEmail) {
+      return email;
+    }
+  }
+
+  return null;
+}
+
 /**
  * Admin moderation endpoints for managing posts and comments
  * POST /api/admin/moderation - Perform moderation action (approve/reject/flag)
@@ -11,23 +50,12 @@ import { auth } from '@clerk/nextjs/server';
 // GET pending items requiring moderation
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
+    const adminIdentity = await verifyAdmin(request);
+    if (!adminIdentity) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const supabase = await createClient();
-
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
-
-    if (profile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden - admin only' }, { status: 403 });
-    }
 
     const searchParams = request.nextUrl.searchParams;
     const type = searchParams.get('type') || 'posts'; // 'posts' or 'comments'
@@ -38,6 +66,70 @@ export async function GET(request: NextRequest) {
         .from('posts_pending_approval')
         .select('*')
         .order('created_at', { ascending: true });
+
+      if (error && isSchemaError(error)) {
+        // Fallback for databases without posts_pending_approval view.
+        let postsQuery: any = await supabase
+          .from('posts')
+          .select('id, title, excerpt, author_id, created_at, approval_status, status')
+          .order('created_at', { ascending: false });
+
+        if (postsQuery.error && isMissingColumnError(postsQuery.error, 'approval_status')) {
+          postsQuery = await supabase
+            .from('posts')
+            .select('id, title, excerpt, author_id, created_at, status')
+            .order('created_at', { ascending: false });
+        }
+
+        if (postsQuery.error) {
+          return NextResponse.json({ error: postsQuery.error.message }, { status: 400 });
+        }
+
+        const posts = postsQuery.data || [];
+        const authorIds = Array.from(new Set(posts.map((post: any) => post.author_id).filter(Boolean)));
+
+        let profilesById = new Map<string, { name?: string | null; avatar_url?: string | null }>();
+        if (authorIds.length > 0) {
+          const profileRows = await supabase
+            .from('profiles')
+            .select('id, name, avatar_url')
+            .in('id', authorIds);
+
+          if (!profileRows.error) {
+            profilesById = new Map(
+              (profileRows.data || []).map((profile: any) => [profile.id, profile])
+            );
+          }
+        }
+
+        const filtered = posts.filter((post: any) => {
+          if (typeof post.approval_status === 'string') {
+            return post.approval_status === 'pending';
+          }
+          // Legacy fallback without approval_status column.
+          return post.status !== 'published';
+        });
+
+        const mapped = filtered.map((post: any) => {
+          const profile = post.author_id ? profilesById.get(post.author_id) : null;
+          return {
+            id: post.id,
+            title: post.title,
+            excerpt: post.excerpt ?? null,
+            author_id: post.author_id ?? null,
+            author_name: profile?.name ?? null,
+            author_avatar: profile?.avatar_url ?? null,
+            created_at: post.created_at,
+            approval_status: post.approval_status ?? 'pending',
+          };
+        });
+
+        return NextResponse.json({
+          type: 'posts',
+          items: mapped,
+          count: mapped.length,
+        });
+      }
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 400 });
@@ -54,6 +146,43 @@ export async function GET(request: NextRequest) {
         .from('comments_pending_approval')
         .select('*')
         .order('created_at', { ascending: true });
+
+      if (error && isSchemaError(error)) {
+        // Fallback for databases without comments_pending_approval view.
+        let fallback: any = await supabase
+          .from('comments')
+          .select('id, post_id, community_post_id, user_id, guest_name, guest_email, content, created_at, is_approved, flagged_as_spam')
+          .order('created_at', { ascending: true });
+
+        if (fallback.error && isMissingColumnError(fallback.error, 'guest_email')) {
+          fallback = await supabase
+            .from('comments')
+            .select('id, post_id, community_post_id, user_id, guest_name, content, created_at, is_approved, flagged_as_spam')
+            .order('created_at', { ascending: true });
+        }
+
+        if (fallback.error && (isMissingColumnError(fallback.error, 'is_approved') || isMissingColumnError(fallback.error, 'flagged_as_spam'))) {
+          fallback = await supabase
+            .from('comments')
+            .select('id, post_id, community_post_id, user_id, guest_name, content, created_at')
+            .order('created_at', { ascending: true });
+        }
+
+        if (fallback.error) {
+          return NextResponse.json({ error: fallback.error.message }, { status: 400 });
+        }
+
+        const filtered = (fallback.data || []).filter((comment: any) =>
+          comment.is_approved === false || comment.flagged_as_spam === true ||
+          (comment.is_approved === undefined && comment.flagged_as_spam === undefined)
+        );
+
+        return NextResponse.json({
+          type: 'comments',
+          items: filtered,
+          count: filtered.length,
+        });
+      }
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 400 });
@@ -76,23 +205,15 @@ export async function GET(request: NextRequest) {
 // POST moderation actions
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
+    const adminIdentity = await verifyAdmin(request);
+    if (!adminIdentity) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const supabase = await createClient();
 
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
-
-    if (profile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden - admin only' }, { status: 403 });
-    }
+    // For SQL functions expecting UUID approved_by, pass null when authenticated by password cookie.
+    const approvedBy = String(adminIdentity).startsWith('user_') ? null : adminIdentity;
 
     const body = await request.json();
     const { action, itemType, itemId, reason } = body;
@@ -107,8 +228,36 @@ export async function POST(request: NextRequest) {
       if (action === 'approve') {
         const { error } = await supabase.rpc('approve_post', {
           p_post_id: itemId,
-          p_approved_by: userId,
+          p_approved_by: approvedBy,
         });
+
+        if (error && isSchemaError(error)) {
+          let fallback = await supabase
+            .from('posts')
+            .update({
+              approval_status: 'approved',
+              approved_by: approvedBy,
+              approved_at: new Date().toISOString(),
+              status: 'published',
+            })
+            .eq('id', itemId);
+
+          if (fallback.error && (isMissingColumnError(fallback.error, 'approval_status') || isMissingColumnError(fallback.error, 'approved_by') || isMissingColumnError(fallback.error, 'approved_at'))) {
+            fallback = await supabase
+              .from('posts')
+              .update({ status: 'published' })
+              .eq('id', itemId);
+          }
+
+          if (fallback.error) {
+            return NextResponse.json({ error: fallback.error.message }, { status: 400 });
+          }
+
+          return NextResponse.json({
+            message: 'Post approved successfully',
+            success: true,
+          }, { status: 200 });
+        }
 
         if (error) {
           return NextResponse.json({ error: error.message }, { status: 400 });
@@ -121,8 +270,36 @@ export async function POST(request: NextRequest) {
       } else if (action === 'reject') {
         const { error } = await supabase.rpc('reject_post', {
           p_post_id: itemId,
-          p_approved_by: userId,
+          p_approved_by: approvedBy,
         });
+
+        if (error && isSchemaError(error)) {
+          let fallback = await supabase
+            .from('posts')
+            .update({
+              approval_status: 'rejected',
+              approved_by: approvedBy,
+              approved_at: new Date().toISOString(),
+              status: 'draft',
+            })
+            .eq('id', itemId);
+
+          if (fallback.error && (isMissingColumnError(fallback.error, 'approval_status') || isMissingColumnError(fallback.error, 'approved_by') || isMissingColumnError(fallback.error, 'approved_at'))) {
+            fallback = await supabase
+              .from('posts')
+              .update({ status: 'draft' })
+              .eq('id', itemId);
+          }
+
+          if (fallback.error) {
+            return NextResponse.json({ error: fallback.error.message }, { status: 400 });
+          }
+
+          return NextResponse.json({
+            message: 'Post rejected successfully',
+            success: true,
+          }, { status: 200 });
+        }
 
         if (error) {
           return NextResponse.json({ error: error.message }, { status: 400 });
@@ -137,8 +314,29 @@ export async function POST(request: NextRequest) {
       if (action === 'approve') {
         const { error } = await supabase.rpc('approve_comment', {
           p_comment_id: itemId,
-          p_approved_by: userId,
+          p_approved_by: approvedBy,
         });
+
+        if (error && isSchemaError(error)) {
+          const fallback = await supabase
+            .from('comments')
+            .update({
+              is_approved: true,
+              flagged_as_spam: false,
+              approved_at: new Date().toISOString(),
+              approved_by: approvedBy,
+            })
+            .eq('id', itemId);
+
+          if (fallback.error) {
+            return NextResponse.json({ error: fallback.error.message }, { status: 400 });
+          }
+
+          return NextResponse.json({
+            message: 'Comment approved successfully',
+            success: true,
+          }, { status: 200 });
+        }
 
         if (error) {
           return NextResponse.json({ error: error.message }, { status: 400 });
@@ -151,9 +349,25 @@ export async function POST(request: NextRequest) {
       } else if (action === 'reject') {
         const { error } = await supabase.rpc('reject_comment', {
           p_comment_id: itemId,
-          p_approved_by: userId,
+          p_approved_by: approvedBy,
           p_reason: reason || 'Rejected by moderator',
         });
+
+        if (error && isSchemaError(error)) {
+          const fallback = await supabase
+            .from('comments')
+            .delete()
+            .eq('id', itemId);
+
+          if (fallback.error) {
+            return NextResponse.json({ error: fallback.error.message }, { status: 400 });
+          }
+
+          return NextResponse.json({
+            message: 'Comment rejected and deleted',
+            success: true,
+          }, { status: 200 });
+        }
 
         if (error) {
           return NextResponse.json({ error: error.message }, { status: 400 });
@@ -168,6 +382,26 @@ export async function POST(request: NextRequest) {
           p_comment_id: itemId,
           p_reason: reason || 'Flagged by moderator',
         });
+
+        if (error && isSchemaError(error)) {
+          const fallback = await supabase
+            .from('comments')
+            .update({
+              flagged_as_spam: true,
+              is_approved: false,
+              flag_reason: reason || 'Flagged by moderator',
+            })
+            .eq('id', itemId);
+
+          if (fallback.error) {
+            return NextResponse.json({ error: fallback.error.message }, { status: 400 });
+          }
+
+          return NextResponse.json({
+            message: 'Comment flagged as spam',
+            success: true,
+          }, { status: 200 });
+        }
 
         if (error) {
           return NextResponse.json({ error: error.message }, { status: 400 });

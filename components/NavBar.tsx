@@ -1,8 +1,10 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { UserButton } from "@clerk/nextjs";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import NotificationsDropdown from "@/components/NotificationsDropdown";
@@ -14,36 +16,55 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+// SSR-safe static guest links — used before client hydration to prevent mismatch
+const GUEST_LINKS = [
+  { href: "/", label: "About", icon: "info" },
+  { href: "/community", label: "Community", icon: "groups" },
+  { href: "/forum", label: "Forum", icon: "forum" },
+  { href: "/careers", label: "Careers", icon: "work" },
+  { href: "/innovation", label: "Innovation", icon: "rocket_launch" },
+];
+
+const AUTH_LINKS = [
+  { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
+  { href: "/community", label: "Community", icon: "groups" },
+  { href: "/forum", label: "Forum", icon: "forum" },
+  { href: "/editor", label: "Write", icon: "edit_note" },
+  { href: "/careers", label: "Careers", icon: "work" },
+  { href: "/dashboard/insights", label: "Analytics", icon: "analytics" },
+  { href: "/innovation", label: "Innovation", icon: "rocket_launch" },
+];
+
 export default function Navbar() {
+  const router = useRouter();
   const { isAdmin, isAuthenticated, profile, user, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
+  // Prevent hydration mismatch: don't render auth-dependent content until after mount
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    // Warm up common routes so page transitions feel instant.
+    router.prefetch("/");
+    router.prefetch("/community");
+    router.prefetch("/dashboard");
+    router.prefetch("/forum");
+    router.prefetch("/careers");
+  }, [router]);
 
   // Determine if user is OTP-based (authenticated but not a Clerk user)
   const isOtpUser = isAuthenticated && !user?.id?.startsWith("user_");
 
-  const navLinks = isAuthenticated
-    ? [
-        { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
-        { href: "/community", label: "Community", icon: "groups" },
-        { href: "/editor", label: "Write", icon: "edit_note" },
-        { href: "/careers", label: "Careers", icon: "work" },
-        { href: "/dashboard/insights", label: "Analytics", icon: "analytics" },
-        { href: "/innovation", label: "Innovation", icon: "rocket_launch" },
-      ]
-    : [
-        { href: "/", label: "About", icon: "info" },
-        { href: "/community", label: "Community", icon: "groups" },
-        { href: "/careers", label: "Careers", icon: "work" },
-        { href: "/innovation", label: "Innovation", icon: "rocket_launch" },
-      ];
+  // Before hydration, always use guest links to match server render
+  const navLinks = mounted && isAuthenticated ? AUTH_LINKS : GUEST_LINKS;
 
   return (
     <>
-      <header className="fixed top-0 w-full z-50 bg-[#0e0e0e]/60 backdrop-blur-xl shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] font-headline">
+      <header className="fixed top-0 w-full z-50 font-headline" style={{background: 'linear-gradient(90deg, rgba(14,14,14,0.75) 0%, rgba(20,18,30,0.78) 50%, rgba(14,14,14,0.75) 100%)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(139,92,246,0.12)', boxShadow: '0 8px 40px -8px rgba(59,130,246,0.18), 0 2px 0 0 rgba(139,92,246,0.08)'}}>
         <nav className="flex justify-between items-center px-6 lg:px-12 h-16 w-full max-w-350 mx-auto">
           <div className="flex items-center gap-8">
-            <Link href="/" className="text-xl font-bold tracking-tighter bg-linear-to-br from-blue-400 to-blue-600 bg-clip-text text-transparent">
+            <Link href="/" className="text-xl font-bold tracking-tighter bg-linear-to-br from-blue-400 via-violet-400 to-emerald-400 bg-clip-text text-transparent hover:opacity-90 transition-opacity">
               AiBlog
             </Link>
             <div className="hidden md:flex gap-3 text-sm">
@@ -60,7 +81,7 @@ export default function Navbar() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            {isAuthenticated ? (
+            {mounted && isAuthenticated ? (
               <>
                 <NotificationsDropdown />
                 
@@ -76,10 +97,12 @@ export default function Navbar() {
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full overflow-hidden">
                         {profile.avatar_url ? (
-                          <img 
-                            src={profile.avatar_url} 
-                            alt={profile.name} 
-                            className="w-full h-full object-cover"
+                          <Image
+                            src={profile.avatar_url}
+                            alt={profile.name}
+                            width={32}
+                            height={32}
+                            className="h-full w-full object-cover"
                           />
                         ) : (
                           <div className="w-full h-full bg-linear-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold">
@@ -115,7 +138,13 @@ export default function Navbar() {
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={signOut} className="text-red-400 cursor-pointer">
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          void signOut();
+                        }}
+                        className="text-red-400 cursor-pointer"
+                      >
                         Sign Out
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -134,15 +163,20 @@ export default function Navbar() {
                   <Link href="/editor">Create Post</Link>
                 </Button>
               </>
-            ) : (
+            ) : mounted ? (
               <>
                 <Button asChild variant="ghost" className="hidden sm:block text-sm font-semibold text-zinc-400 hover:text-white">
                   <Link href="/auth">Login</Link>
                 </Button>
                 <Button asChild className="px-5 bg-linear-to-r from-primary to-primary-container text-on-primary-fixed rounded-full font-bold text-sm hover:scale-[1.02] shadow-lg shadow-primary/20">
-                  <Link href="/pricing">Get Started</Link>
+                  <Link href="/auth?next=%2Fpricing">Get Started</Link>
                 </Button>
               </>
+            ) : (
+              // Pre-hydration placeholder — matches server HTML exactly
+              <Button asChild className="px-5 bg-linear-to-r from-primary to-primary-container text-on-primary-fixed rounded-full font-bold text-sm hover:scale-[1.02] shadow-lg shadow-primary/20">
+                <Link href="/auth?next=%2Fpricing">Get Started</Link>
+              </Button>
             )}
             <Button variant="ghost" size="icon" className="md:hidden text-zinc-400" onClick={() => setMenuOpen(!menuOpen)}>
               <span className="material-symbols-outlined">menu</span>
@@ -163,11 +197,11 @@ export default function Navbar() {
               </Link>
             ))}
 
-            {!isAuthenticated && (
+            {!isAuthenticated && mounted && (
               <Link href="/auth" className="block text-sm text-primary font-semibold px-2 py-2" onClick={() => setMenuOpen(false)}>Login / Sign Up</Link>
             )}
 
-            {isAuthenticated && isAdmin && (
+            {isAuthenticated && mounted && isAdmin && (
               <Link href="/admin" className="block text-sm text-zinc-300 hover:text-white rounded-lg px-2 py-2 hover:bg-white/5" onClick={() => setMenuOpen(false)}>Admin</Link>
             )}
 
@@ -177,7 +211,7 @@ export default function Navbar() {
                 <div className="pt-2">
                   {isOtpUser && profile ? (
                     <Button 
-                      onClick={signOut}
+                      onClick={() => { void signOut(); }}
                       variant="ghost"
                       className="w-full justify-start text-red-400 hover:text-red-300"
                     >

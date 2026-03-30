@@ -111,16 +111,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Post not found' }, { status: 404 });
     }
 
-    const existingLike = await queryLikesTable<LikeRow | null>(async (table) =>
-      supabase.from(table).select('user_id, created_at').eq('post_id', postId).eq('user_id', userId).maybeSingle()
+    const existingLikeRows = await queryLikesTable<LikeRow[]>(async (table) =>
+      supabase.from(table).select('user_id, created_at').eq('post_id', postId).eq('user_id', userId)
     );
 
     let insertResult: { table: (typeof LIKE_TABLES)[number]; data: LikeRow | null } = {
-      table: existingLike.table,
-      data: existingLike.data,
+      table: existingLikeRows.table,
+      data: (existingLikeRows.data || [])[0] || null,
     };
 
-    if (!existingLike.data) {
+    if (!(existingLikeRows.data || []).length) {
+      insertResult = await queryLikesTable<LikeRow>(async (table) =>
+        supabase.from(table).insert({ post_id: postId, user_id: userId }).select('user_id, created_at').single()
+      );
+    } else if ((existingLikeRows.data || []).length > 1) {
+      // Clean up duplicate likes for this user/post pair and keep exactly one.
+      await queryLikesTable(async (table) =>
+        supabase.from(table).delete().eq('post_id', postId).eq('user_id', userId)
+      );
       insertResult = await queryLikesTable<LikeRow>(async (table) =>
         supabase.from(table).insert({ post_id: postId, user_id: userId }).select('user_id, created_at').single()
       );
@@ -130,7 +138,7 @@ export async function POST(request: NextRequest) {
       supabase.from(table).select('user_id').eq('post_id', postId)
     );
 
-    const count = (countResult.data || []).length;
+    const count = new Set((countResult.data || []).map((row) => row.user_id)).size;
 
     await supabase.from('posts').update({ likes_count: count }).eq('id', postId);
 
@@ -196,7 +204,7 @@ export async function DELETE(request: NextRequest) {
       supabase.from(table).select('user_id').eq('post_id', postId)
     );
 
-    const count = (countResult.data || []).length;
+    const count = new Set((countResult.data || []).map((row) => row.user_id)).size;
 
     await supabase.from('posts').update({ likes_count: count }).eq('id', postId);
 

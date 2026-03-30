@@ -1,126 +1,51 @@
 ﻿"use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { SignIn } from "@clerk/nextjs";
-import { dark } from "@clerk/themes";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useAuth } from "@/context/AuthContext";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const { user, isAdmin, loading } = useAuth();
-  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "admin@gmail.com";
-
-  // Redirect if already logged in as admin
-  useEffect(() => {
-    if (!loading) {
-      if (isAdmin && user) {
-        router.push("/admin");
-      }
-    }
-  }, [loading, isAdmin, user, router]);
-
-  const [authMethod, setAuthMethod] = useState<"clerk" | "otp">("otp");
-  const [otpEmail, setOtpEmail] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [otpStep, setOtpStep] = useState<"email" | "verify">("email");
-  const [otpLoading, setOtpLoading] = useState(false);
-  const [otpError, setOtpError] = useState("");
-  const [otpSuccess, setOtpSuccess] = useState("");
-  const [countdown, setCountdown] = useState(0);
+  const publicAdminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "";
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (countdown <= 0) return;
-    const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [countdown]);
-
-  const handleSendOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!otpEmail.trim()) return;
-
-    // Check if email is admin email
-    if (otpEmail.toLowerCase() !== adminEmail.toLowerCase()) {
-      setOtpError("This email is not an admin account. Only admin emails can login here.");
-      return;
+    if (publicAdminEmail) {
+      setEmail(publicAdminEmail);
     }
+  }, [publicAdminEmail]);
 
-    setOtpLoading(true);
-    setOtpError("");
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
     try {
-      const res = await fetch("/api/auth/otp/send", {
+      const response = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: otpEmail }),
+        body: JSON.stringify({ email, password }),
       });
-      const data = await res.json();
-      if (res.ok) {
-        setOtpStep("verify");
-        setOtpSuccess("Code sent to your email!");
-        setCountdown(60);
-      } else {
-        setOtpError(data.error || "Failed to send code.");
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Admin login failed");
       }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error("OTP send error:", errorMsg);
-      setOtpError("Something went wrong. Please try again.");
+
+      router.push("/");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
     } finally {
-      setOtpLoading(false);
+      setLoading(false);
     }
   };
-
-  const handleVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!otpCode.trim()) return;
-    setOtpLoading(true);
-    setOtpError("");
-    try {
-      const res = await fetch("/api/auth/otp/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: otpEmail, code: otpCode }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        // Verify it's an admin account
-        if (data.user.role !== "admin") {
-          setOtpError("This account is not an admin account.");
-          return;
-        }
-
-        setOtpSuccess("Verified! Redirecting to admin dashboard...");
-        // Session is stored in httpOnly cookie by the server
-        setTimeout(() => router.push("/admin"), 1500);
-      } else {
-        setOtpError(data.error || "Invalid code.");
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error("OTP verification error:", errorMsg);
-      setOtpError("Verification failed. Please try again.");
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Skeleton className="h-10 w-10 rounded-full" />
-          <Skeleton className="h-4 w-32" />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -177,164 +102,57 @@ export default function AdminLoginPage() {
             <p className="text-sm text-on-surface-variant mt-1">
               Access restricted to administrators only
             </p>
-            <Badge variant="outline" className="mt-4">
-              Required Email: {adminEmail}
-            </Badge>
+            {publicAdminEmail && (
+              <Badge variant="outline" className="mt-4">
+                Required Email: {publicAdminEmail}
+              </Badge>
+            )}
           </div>
 
-          {/* Method Toggle: Clerk vs OTP */}
-          <Tabs value={authMethod} onValueChange={(v) => setAuthMethod(v as "clerk" | "otp")} className="mb-6">
-            <TabsList className="bg-surface-container-high rounded-full p-1">
-              <TabsTrigger value="otp" className="rounded-full px-5 py-2 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-on-primary data-[state=active]:shadow-md">
-                <span className="flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-sm">mail</span>
-                  Email OTP
-                </span>
-              </TabsTrigger>
-              <TabsTrigger value="clerk" className="rounded-full px-5 py-2 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-on-primary data-[state=active]:shadow-md">
-                <span className="flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-sm">account_circle</span>
-                  Social Login
-                </span>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <Card className="w-full bg-surface-container-low border-outline-variant/20">
+            <CardContent className="p-8">
+              {error && (
+                <div className="mb-4 p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm">error</span>
+                  {error}
+                </div>
+              )}
 
-          {/* OTP Login */}
-          {authMethod === "otp" ? (
-            <Card className="w-full bg-surface-container-low border-outline-variant/20">
-              <CardContent className="p-8">
-                {otpError && (
-                  <div className="mb-4 p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm">error</span>
-                    {otpError}
-                  </div>
-                )}
-                {otpSuccess && !otpError && (
-                  <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-sm flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm">check_circle</span>
-                    {otpSuccess}
-                  </div>
-                )}
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-2">
+                    Admin Email
+                  </label>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder={publicAdminEmail || "Enter admin email"}
+                    className="bg-surface-container border-outline-variant/20 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary/50 h-12 rounded-xl"
+                    required
+                  />
+                </div>
 
-                {otpStep === "email" ? (
-                  <form onSubmit={handleSendOTP} className="space-y-4">
-                    <div>
-                      <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-2">
-                        Admin Email
-                      </label>
-                      <Input
-                        type="email"
-                        value={otpEmail}
-                        onChange={(e) => setOtpEmail(e.target.value)}
-                        placeholder={adminEmail}
-                        className="bg-surface-container border-outline-variant/20 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary/50 h-12 rounded-xl"
-                        required
-                      />
-                      <p className="text-xs text-on-surface-variant mt-2">
-                        Enter the admin email address to receive a login code
-                      </p>
-                    </div>
-                    <Button type="submit" disabled={otpLoading} className="w-full h-12 rounded-xl font-bold">
-                      {otpLoading ? (
-                        <>
-                          <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></span>
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <span className="material-symbols-outlined text-sm mr-1">mail</span>
-                          Send Code
-                        </>
-                      )}
-                    </Button>
-                  </form>
-                ) : (
-                  <form onSubmit={handleVerifyOTP} className="space-y-4">
-                    <div>
-                      <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-2">
-                        6-Digit Code
-                      </label>
-                      <Input
-                        type="text"
-                        value={otpCode}
-                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                        placeholder="000000"
-                        maxLength={6}
-                        className="bg-surface-container border-outline-variant/20 text-2xl font-mono font-bold text-center text-on-surface tracking-[0.5em] placeholder:text-on-surface-variant/30 focus:border-primary/50 h-14 rounded-xl"
-                        required
-                      />
-                      <p className="text-xs text-on-surface-variant mt-2">
-                        Enter the 6-digit code sent to {otpEmail}
-                      </p>
-                    </div>
-                    <Button
-                      type="submit"
-                      disabled={otpLoading || otpCode.length !== 6}
-                      className="w-full h-12 rounded-xl font-bold"
-                    >
-                      {otpLoading ? (
-                        <>
-                          <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></span>
-                          Verifying...
-                        </>
-                      ) : (
-                        <>
-                          <span className="material-symbols-outlined text-sm mr-1">verified</span>
-                          Verify &amp; Login
-                        </>
-                      )}
-                    </Button>
-                    <div className="flex items-center justify-between text-xs text-on-surface-variant">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setOtpStep("email");
-                          setOtpCode("");
-                          setOtpError("");
-                          setOtpSuccess("");
-                        }}
-                        className="text-xs h-auto p-0 hover:text-primary"
-                      >
-                        Change email
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleSendOTP}
-                        disabled={countdown > 0 || otpLoading}
-                        className="text-xs h-auto p-0 hover:text-primary"
-                      >
-                        {countdown > 0 ? `Resend in ${countdown}s` : "Resend code"}
-                      </Button>
-                    </div>
-                  </form>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            // Clerk Sign In
-            <div className="w-full">
-              <div className="mb-4 text-center text-xs text-on-surface-variant">
-                Sign in with your account configured as admin in Clerk
-              </div>
-              <SignIn
-                appearance={{
-                  baseTheme: dark,
-                  elements: {
-                    rootBox: "w-full",
-                    cardBox: "w-full shadow-none",
-                    card: "bg-surface-container-low border border-outline-variant/20 shadow-none",
-                  },
-                }}
-                routing="hash"
-                forceRedirectUrl="/admin"
-              />
-            </div>
-          )}
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-2">
+                    Admin Password
+                  </label>
+                  <Input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter admin password"
+                    className="bg-surface-container border-outline-variant/20 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary/50 h-12 rounded-xl"
+                    required
+                  />
+                </div>
+
+                <Button type="submit" disabled={loading} className="w-full h-12 rounded-xl font-bold">
+                  {loading ? "Signing in..." : "Login to Admin Panel"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
 
           <div className="mt-6 text-center">
             <Link

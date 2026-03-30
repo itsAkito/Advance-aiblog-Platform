@@ -78,8 +78,8 @@ export default function AIInsightsPanel() {
           <>
             <h5 className="text-xl font-bold font-headline mb-2 italic">{insight.trend}</h5>
             <p className="text-sm text-on-surface-variant mb-6 leading-relaxed">
-              Our AI detected a <span className="text-white font-bold">{insight.increase}% surge</span> in "
-              {insight.topic}" searches. We suggest adding a specialized track for {insight.category} soon.
+              Our AI detected a <span className="text-white font-bold">{insight.increase}% surge</span> in &quot;
+              {insight.topic}&quot; searches. We suggest adding a specialized track for {insight.category} soon.
             </p>
             <button
               onClick={() => handleInitializeTrack(insight.suggestedTrack)}

@@ -99,7 +99,7 @@ export default function DashboardPage() {
   return (
     <ProtectedRoute>
       <Navbar />
-      <div className="flex min-h-screen bg-background">
+      <div className="flex min-h-screen" style={{background: "radial-gradient(ellipse 70% 45% at 15% 5%, rgba(99,102,241,0.1) 0%, transparent 55%), radial-gradient(ellipse 60% 40% at 85% 90%, rgba(16,185,129,0.08) 0%, transparent 55%), hsl(var(--background))"}}>
         <SideNavBar activePage="home" />
         <main className="flex-1 lg:ml-64 pt-24 pb-12 px-4 sm:px-8">
           <div className="max-w-6xl mx-auto">
@@ -130,9 +130,9 @@ export default function DashboardPage() {
 
             {/* Stats Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
-              <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl shadow-xl shadow-black/20 hover:border-primary/20 transition-colors">
+              <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl shadow-xl shadow-black/20 hover:border-indigo-400/30 hover:-translate-y-0.5 transition-all" style={{background:"linear-gradient(135deg,rgba(99,102,241,0.08) 0%,rgba(255,255,255,0.02) 100%)"}}>
                 <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center" style={{background:"rgba(99,102,241,0.15)"}}>
                     <span className="material-symbols-outlined text-primary">visibility</span>
                   </div>
                   <span className="text-[10px] uppercase tracking-widest text-on-surface-variant font-medium">Weekly Views</span>
@@ -150,9 +150,9 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl shadow-xl shadow-black/20 hover:border-primary/20 transition-colors">
+              <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl shadow-xl shadow-black/20 hover:border-violet-400/30 hover:-translate-y-0.5 transition-all" style={{background:"linear-gradient(135deg,rgba(139,92,246,0.08) 0%,rgba(255,255,255,0.02) 100%)"}}>
                 <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
-                  <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center" style={{background:"rgba(139,92,246,0.15)"}}>
                     <span className="material-symbols-outlined text-secondary">bolt</span>
                   </div>
                   <span className="text-[10px] uppercase tracking-widest text-on-surface-variant font-medium">Engagement Rate</span>
@@ -173,9 +173,9 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl shadow-xl shadow-black/20 hover:border-primary/20 transition-colors">
+              <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl shadow-xl shadow-black/20 hover:border-emerald-400/30 hover:-translate-y-0.5 transition-all" style={{background:"linear-gradient(135deg,rgba(16,185,129,0.08) 0%,rgba(255,255,255,0.02) 100%)"}}>
                 <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
-                  <div className="w-10 h-10 rounded-xl bg-tertiary/10 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-tertiary/10 flex items-center justify-center" style={{background:"rgba(16,185,129,0.15)"}}>
                     <span className="material-symbols-outlined text-tertiary">group</span>
                   </div>
                   <span className="text-[10px] uppercase tracking-widest text-on-surface-variant font-medium">Followers</span>

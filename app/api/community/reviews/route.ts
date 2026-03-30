@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/auth-helpers';
 
 const isMissingTableError = (error: unknown) => {
   const code = typeof error === 'object' && error !== null ? (error as { code?: string }).code : undefined;
@@ -33,7 +33,13 @@ export async function GET(request: NextRequest) {
       if (isMissingTableError(error)) {
         return NextResponse.json({ reviews: [], unavailable: true });
       }
-      throw error;
+
+      console.warn('Reviews query warning:', error.message);
+      return NextResponse.json({
+        reviews: [],
+        unavailable: true,
+        warning: error.message || 'Reviews unavailable right now',
+      });
     }
 
     const reviews = (data || []).map((r) => ({
@@ -54,10 +60,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ reviews });
   } catch (error) {
     console.error('Error fetching reviews:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch reviews' },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      reviews: [],
+      unavailable: true,
+      warning: 'Failed to fetch reviews',
+    });
   }
 }
 
@@ -65,7 +72,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { userId } = await auth();
+    const userId = await getAuthUserId(request);
 
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

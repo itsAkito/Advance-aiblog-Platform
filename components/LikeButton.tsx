@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
+import { emitLikeUpdate, subscribeLikeUpdates } from "@/lib/like-sync";
 
 interface LikeButtonProps {
   postId: string;
@@ -44,24 +45,58 @@ export default function LikeButton({
     checkLikeStatus();
   }, [postId, isAuthenticated]);
 
+  useEffect(() => {
+    const unsubscribe = subscribeLikeUpdates((payload) => {
+      if (payload.postId !== postId) return;
+      setLikeCount(payload.likesCount);
+      setIsLiked(payload.likedByCurrentUser);
+      onLikeChange?.(payload.likesCount, payload.likedByCurrentUser);
+    });
+
+    return unsubscribe;
+  }, [postId, onLikeChange]);
+
   const handleLikeClick = async () => {
     if (!isAuthenticated) {
       setShowLoginPrompt(true);
       return;
     }
 
+    const previousLiked = isLiked;
+    const previousCount = likeCount;
+    const optimisticLiked = !previousLiked;
+    const optimisticCount = Math.max(0, previousCount + (optimisticLiked ? 1 : -1));
+
+    setIsLiked(optimisticLiked);
+    setLikeCount(optimisticCount);
+    onLikeChange?.(optimisticCount, optimisticLiked);
+    emitLikeUpdate({
+      postId,
+      likesCount: optimisticCount,
+      likedByCurrentUser: optimisticLiked,
+      source: "like-button",
+    });
+
     setLoading(true);
     try {
-      if (isLiked) {
+      if (previousLiked) {
         // Unlike
         const response = await fetch(`/api/likes?post_id=${postId}`, {
           method: "DELETE",
         });
 
         if (response.ok) {
+          const payload = await response.json();
+          const finalCount = payload.count ?? Math.max(0, previousCount - 1);
           setIsLiked(false);
-          setLikeCount(Math.max(0, likeCount - 1));
-          onLikeChange?.(Math.max(0, likeCount - 1), false);
+          setLikeCount(finalCount);
+          onLikeChange?.(finalCount, false);
+          emitLikeUpdate({
+            postId,
+            likesCount: finalCount,
+            likedByCurrentUser: false,
+            source: "like-button",
+          });
         } else {
           throw new Error("Failed to unlike");
         }
@@ -74,15 +109,32 @@ export default function LikeButton({
         });
 
         if (response.ok) {
+          const payload = await response.json();
+          const finalCount = payload.count ?? previousCount + 1;
           setIsLiked(true);
-          setLikeCount(likeCount + 1);
-          onLikeChange?.(likeCount + 1, true);
+          setLikeCount(finalCount);
+          onLikeChange?.(finalCount, true);
+          emitLikeUpdate({
+            postId,
+            likesCount: finalCount,
+            likedByCurrentUser: true,
+            source: "like-button",
+          });
         } else {
           throw new Error("Failed to like");
         }
       }
     } catch (error) {
       console.error("Error toggling like:", error);
+      setIsLiked(previousLiked);
+      setLikeCount(previousCount);
+      onLikeChange?.(previousCount, previousLiked);
+      emitLikeUpdate({
+        postId,
+        likesCount: previousCount,
+        likedByCurrentUser: previousLiked,
+        source: "like-button",
+      });
     } finally {
       setLoading(false);
     }

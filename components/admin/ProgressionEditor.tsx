@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 interface ProgressionLevel {
   id: string;
@@ -17,11 +17,7 @@ export default function ProgressionEditor({ track }: { track: any }) {
   const [levels, setLevels] = useState<ProgressionLevel[]>([]);
   const [, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchProgressionLevels();
-  }, [track?.id]);
-
-  const fetchProgressionLevels = async () => {
+  const fetchProgressionLevels = useCallback(async () => {
     if (!track?.id) return;
     try {
       const response = await fetch(`/api/admin/career-tracks/${track.id}/levels`);
@@ -32,7 +28,11 @@ export default function ProgressionEditor({ track }: { track: any }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [track?.id]);
+
+  useEffect(() => {
+    fetchProgressionLevels();
+  }, [fetchProgressionLevels]);
 
   return (
     <div className="glass-effect p-8 rounded-2xl relative overflow-hidden">

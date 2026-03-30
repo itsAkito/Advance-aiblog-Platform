@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { getAuthUserId } from '@/lib/auth-helpers';
+
+const isSchemaError = (error: unknown) => {
+  const code = typeof error === 'object' && error !== null ? (error as { code?: string }).code : undefined;
+  const message = typeof error === 'object' && error !== null ? (error as { message?: string }).message : undefined;
+  return code === 'PGRST204' || code === 'PGRST205' || (typeof message === 'string' && message.includes('does not exist'));
+};
+
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
 export async function POST(
   request: NextRequest,
@@ -8,9 +18,7 @@ export async function POST(
   try {
     const { id } = await params;
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    const userId = user?.id;
+    const userId = await getAuthUserId(request);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -27,25 +35,36 @@ export async function POST(
     }
 
     // Verify job exists
-    const { data: jobData, error: jobError } = await supabase
-      .from('job_listings')
-      .select('id, title, company_name, author_id')
-      .eq('id', jobId)
-      .single();
-
-    if (jobError || !jobData) {
-      return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+    let jobData: { id: string; title: string; company_name: string; author_id?: string | null } | null = null;
+    if (isUuid(jobId)) {
+      const lookup = await supabase
+        .from('job_listings')
+        .select('id, title, company_name, author_id')
+        .eq('id', jobId)
+        .maybeSingle();
+      if (!lookup.error && lookup.data) {
+        jobData = lookup.data as any;
+      }
     }
 
     // Check if already applied
-    const { data: existingApplication } = await supabase
+    const existingByJob = isUuid(jobId)
+      ? await supabase
+          .from('job_applications')
+          .select('id')
+          .eq('job_id', jobId)
+          .eq('user_id', userId)
+          .maybeSingle()
+      : { data: null as any, error: null as any };
+
+    const existingByExternal = await supabase
       .from('job_applications')
       .select('id')
-      .eq('job_id', jobId)
       .eq('user_id', userId)
-      .single();
+      .eq('external_job_id', jobId)
+      .maybeSingle();
 
-    if (existingApplication) {
+    if (existingByJob.data || existingByExternal.data) {
       return NextResponse.json(
         { error: 'You have already applied for this job' },
         { status: 409 }
@@ -53,33 +72,68 @@ export async function POST(
     }
 
     // Create application
-    const { data: application, error: appError } = await supabase
+    // Create application (supports legacy schema and external/mock job IDs)
+    let applicationInsert: any = {
+      user_id: userId,
+      status: 'applied',
+      cover_letter: coverLetter,
+      resume_url: null,
+      applied_at: new Date().toISOString(),
+      applicant_name: fullName,
+      applicant_email: email,
+      applicant_phone: phone,
+      external_job_id: jobId,
+      external_job_title: jobData?.title || 'External Job Listing',
+      external_company_name: jobData?.company_name || 'Unknown Company',
+    };
+
+    if (jobData?.id) {
+      applicationInsert.job_id = jobData.id;
+    }
+
+    const insert = await supabase
       .from('job_applications')
-      .insert({
-        job_id: jobId,
-        user_id: userId,
-        status: 'applied',
-        cover_letter: coverLetter,
-        resume_url: null, // TODO: Handle resume upload
-        applied_at: new Date().toISOString(),
-      })
+      .insert(applicationInsert)
       .select()
       .single();
+
+    let application = insert.data;
+    let appError = insert.error;
+
+    if (appError && isSchemaError(appError)) {
+      const legacyInsert = await supabase
+        .from('job_applications')
+        .insert({
+          user_id: userId,
+          ...(jobData?.id ? { job_id: jobData.id } : {}),
+          status: 'applied',
+          cover_letter: coverLetter,
+          resume_url: null,
+          applied_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      application = legacyInsert.data;
+      appError = legacyInsert.error;
+    }
 
     if (appError) throw appError;
 
     // Update job application count
-    await supabase.rpc('increment_job_applications', { job_id: jobId });
+    if (jobData?.id) {
+      await supabase.rpc('increment_job_applications', { job_id: jobData.id });
+    }
 
     // Create notification for recruiter
     try {
       await supabase.from('notifications').insert({
-        user_id: jobData.author_id,
+        user_id: jobData?.author_id,
         triggered_by_user_id: userId,
         type: 'job_application',
         post_id: null,
         title: 'New Job Application',
-        message: `${fullName} applied for ${jobData.title} at ${jobData.company_name}`,
+        message: `${fullName} applied for ${jobData?.title || 'a job'} at ${jobData?.company_name || 'your company'}`,
       });
     } catch (notificationError) {
       console.warn('Failed to create job application notification:', notificationError);
@@ -91,9 +145,10 @@ export async function POST(
         user_id: userId,
         event_type: 'job_apply',
         event_data: {
-          job_id: jobId,
-          company: jobData.company_name,
-          position: jobData.title,
+          job_id: jobData?.id || null,
+          external_job_id: jobId,
+          company: jobData?.company_name || null,
+          position: jobData?.title || null,
         },
       });
     } catch (analyticsError) {
@@ -124,9 +179,8 @@ export async function GET(
   try {
     const { id } = await params;
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user?.id) {
+    const userId = await getAuthUserId(_request);
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -136,9 +190,9 @@ export async function GET(
     const { data: application, error } = await supabase
       .from('job_applications')
       .select('*')
-      .eq('job_id', jobId)
-      .eq('user_id', user.id)
-      .single();
+      .eq('user_id', userId)
+      .or(`job_id.eq.${jobId},external_job_id.eq.${jobId}`)
+      .maybeSingle();
 
     if (error && error.code !== 'PGRST116') {
       throw error;

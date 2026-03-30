@@ -1,144 +1,247 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import AdminSideNav from "@/components/AdminSideNav";
 import AdminTopNav from "@/components/AdminTopNav";
+import { AiBadge } from "@/components/AiBadge";
 import { useAuth } from "@/context/AuthContext";
-import { redirect } from "next/navigation";
 
-interface FlaggedPost {
+type PendingPost = {
   id: string;
   title: string;
-  excerpt: string;
-  author: string;
-  authorEmail: string;
-  reason: string;
-  severity: "low" | "medium" | "high" | "critical";
-  status: "pending" | "approved" | "rejected" | "escalated";
-  flaggedAt: string;
-  aiAnalysis?: string;
-}
+  excerpt?: string | null;
+  author_id?: string | null;
+  author_name?: string | null;
+  author_avatar?: string | null;
+  created_at: string;
+  approval_status?: string;
+};
+
+type PendingComment = {
+  id: string;
+  content: string;
+  user_id?: string | null;
+  guest_name?: string | null;
+  guest_email?: string | null;
+  author_name?: string | null;
+  author_avatar?: string | null;
+  post_title?: string | null;
+  post_id?: string | null;
+  created_at: string;
+  is_approved?: boolean;
+  flagged_as_spam?: boolean;
+};
 
 export default function ModerationPage() {
-  const { user, isAdmin } = useAuth();
-  const [posts, setPosts] = useState<FlaggedPost[]>([]);
-  const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected" | "escalated">("all");
+  const { user, isAdmin, loading } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const deepLinkedPostId = searchParams.get("postId");
+  const deepLinkedCommentId = searchParams.get("commentId");
+  const deepLinkedTab = searchParams.get("tab");
+
+  const [activeTab, setActiveTab] = useState<"posts" | "comments">("posts");
+  const [pendingPosts, setPendingPosts] = useState<PendingPost[]>([]);
+  const [pendingComments, setPendingComments] = useState<PendingComment[]>([]);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
+  const [fetching, setFetching] = useState(true);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [error, setError] = useState<string>("");
 
   useEffect(() => {
-    if (!user) redirect("/auth");
-    if (user && !isAdmin) redirect("/dashboard");
-  }, [user, isAdmin]);
-  const [selectedPost, setSelectedPost] = useState<FlaggedPost | null>(null);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+    if (loading) return;
+    if (!user) {
+      router.push("/admin/login");
+      return;
+    }
+    if (!isAdmin) {
+      router.push("/dashboard");
+      return;
+    }
+  }, [loading, user, isAdmin, router]);
+
+  const fetchModerationData = useCallback(async () => {
+    try {
+      setError("");
+      const [postsRes, commentsRes] = await Promise.all([
+        fetch("/api/admin/moderation?type=posts", { cache: "no-store" }),
+        fetch("/api/admin/moderation?type=comments", { cache: "no-store" }),
+      ]);
+
+      const postsJson = await postsRes.json();
+      const commentsJson = await commentsRes.json();
+
+      if (!postsRes.ok) {
+        throw new Error(postsJson.error || "Failed to load pending posts");
+      }
+
+      if (!commentsRes.ok) {
+        throw new Error(commentsJson.error || "Failed to load pending comments");
+      }
+
+      const postItems: PendingPost[] = postsJson.items || [];
+      const commentItems: PendingComment[] = commentsJson.items || [];
+
+      setPendingPosts(postItems);
+      setPendingComments(commentItems);
+
+      if (!selectedPostId && postItems.length > 0) {
+        setSelectedPostId(postItems[0].id);
+      }
+
+      if (!selectedCommentId && commentItems.length > 0) {
+        setSelectedCommentId(commentItems[0].id);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load moderation queue");
+    } finally {
+      setFetching(false);
+    }
+  }, [selectedCommentId, selectedPostId]);
 
   useEffect(() => {
-    fetchFlaggedPosts();
-  }, []);
+    if (loading || !user || !isAdmin) return;
 
-  const fetchFlaggedPosts = async () => {
-    try {
-      const response = await fetch("/api/posts?limit=20");
-      const data = await response.json();
-      // Map posts to flagged format for demo
-      const flagged: FlaggedPost[] = (data.posts || []).slice(0, 8).map((p: any, i: number) => ({
-        id: p.id,
-        title: p.title || `Flagged Content #${i + 1}`,
-        excerpt: p.excerpt || p.content?.substring(0, 120) || "Content under review...",
-        author: p.author_name || "Unknown Author",
-        authorEmail: p.author_email || "user@example.com",
-        reason: ["Policy Violation", "Spam", "Misleading AI Content", "Hate Speech", "Copyright"][i % 5],
-        severity: (["low", "medium", "high", "critical"] as const)[i % 4],
-        status: (["pending", "approved", "rejected", "escalated"] as const)[i % 4],
-        flaggedAt: new Date(Date.now() - i * 3600000 * 6).toLocaleDateString(),
-        aiAnalysis: i % 2 === 0 ? "AI analysis suggests potential policy violation in paragraphs 2-3. Confidence: 78%." : undefined,
-      }));
-      setPosts(flagged);
-      if (flagged.length > 0) setSelectedPost(flagged[0]);
-    } catch (error) {
-      console.error("Failed to fetch posts:", error);
+    fetchModerationData();
+    const timer = setInterval(fetchModerationData, 300000);
+    return () => clearInterval(timer);
+  }, [loading, user, isAdmin, fetchModerationData]);
+
+  useEffect(() => {
+    if (deepLinkedTab === "posts" || deepLinkedTab === "comments") {
+      setActiveTab(deepLinkedTab);
     }
-  };
+  }, [deepLinkedTab]);
 
-  const handleAction = (postId: string, action: "approved" | "rejected" | "escalated") => {
-    setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, status: action } : p)));
-    if (selectedPost?.id === postId) {
-      setSelectedPost({ ...selectedPost, status: action });
-    }
-  };
+  useEffect(() => {
+    if (!deepLinkedPostId || pendingPosts.length === 0) return;
+    const targetExists = pendingPosts.some((post) => post.id === deepLinkedPostId);
+    if (!targetExists) return;
 
-  const handleAIAnalysis = async () => {
-    if (!selectedPost) return;
-    setAnalyzing(true);
+    setActiveTab("posts");
+    setSelectedPostId(deepLinkedPostId);
+  }, [deepLinkedPostId, pendingPosts]);
+
+  useEffect(() => {
+    if (!deepLinkedCommentId || pendingComments.length === 0) return;
+    const targetExists = pendingComments.some((comment) => comment.id === deepLinkedCommentId);
+    if (!targetExists) return;
+
+    setActiveTab("comments");
+    setSelectedCommentId(deepLinkedCommentId);
+  }, [deepLinkedCommentId, pendingComments]);
+
+  const runModerationAction = async (
+    itemType: "post" | "comment",
+    itemId: string,
+    action: "approve" | "reject" | "flag"
+  ) => {
     try {
-      const response = await fetch("/api/ai/generate", {
+      setActionLoadingId(itemId + action);
+      setError("");
+      const response = await fetch("/api/admin/moderation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          topic: `Analyze this content for policy violations: "${selectedPost.title}" - ${selectedPost.excerpt}`,
-          tone: "analytical",
-        }),
+        body: JSON.stringify({ itemType, itemId, action }),
       });
+
       const data = await response.json();
-      const analysis = data.content || "No policy violations detected. Content appears to be within acceptable guidelines.";
-      setPosts((prev) => prev.map((p) => (p.id === selectedPost.id ? { ...p, aiAnalysis: analysis } : p)));
-      setSelectedPost({ ...selectedPost, aiAnalysis: analysis });
-    } catch {
-      setSelectedPost({ ...selectedPost, aiAnalysis: "AI analysis unavailable. Please review manually." });
+      if (!response.ok) {
+        throw new Error(data.error || "Moderation action failed");
+      }
+
+      if (itemType === "post") {
+        setPendingPosts((prev) => prev.filter((p) => p.id !== itemId));
+        if (selectedPostId === itemId) {
+          const next = pendingPosts.find((p) => p.id !== itemId);
+          setSelectedPostId(next?.id || null);
+        }
+      } else {
+        setPendingComments((prev) => prev.filter((c) => c.id !== itemId));
+        if (selectedCommentId === itemId) {
+          const next = pendingComments.find((c) => c.id !== itemId);
+          setSelectedCommentId(next?.id || null);
+        }
+      }
+
+      await fetchModerationData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Moderation action failed");
     } finally {
-      setAnalyzing(false);
+      setActionLoadingId(null);
     }
   };
 
-  const handleDeletePost = async (postId: string) => {
-    if (!confirm("Delete this post permanently? This action cannot be undone.")) return;
-    setDeletingPostId(postId);
+  const deletePostPermanently = async (postId: string) => {
+    const confirmed = window.confirm("Delete this post permanently? This cannot be undone.");
+    if (!confirmed) return;
+
     try {
-      const response = await fetch(`/api/admin/posts/${postId}`, { method: "DELETE" });
+      setActionLoadingId(postId + "delete");
+      setError("");
+      const response = await fetch(`/api/admin/posts/${postId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const data = await response.json();
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
         throw new Error(data.error || "Failed to delete post");
       }
 
-      setPosts((current) => current.filter((post) => post.id !== postId));
-      if (selectedPost?.id === postId) {
-        setSelectedPost(null);
+      setPendingPosts((prev) => prev.filter((p) => p.id !== postId));
+      if (selectedPostId === postId) {
+        setSelectedPostId(null);
       }
-    } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed to delete post");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete post");
     } finally {
-      setDeletingPostId(null);
+      setActionLoadingId(null);
     }
   };
 
-  const filteredPosts = posts.filter((p) => filter === "all" || p.status === filter);
+  const deleteCommentPermanently = async (commentId: string) => {
+    const confirmed = window.confirm("Delete this comment permanently? This cannot be undone.");
+    if (!confirmed) return;
 
-  const severityColor = (s: string) => {
-    const map: Record<string, string> = {
-      low: "bg-green-500/10 text-green-400",
-      medium: "bg-yellow-500/10 text-yellow-400",
-      high: "bg-orange-500/10 text-orange-400",
-      critical: "bg-red-500/10 text-red-400",
-    };
-    return map[s] || map.low;
+    try {
+      setActionLoadingId(commentId + "delete");
+      setError("");
+      const response = await fetch(`/api/admin/comments/${commentId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to delete comment");
+      }
+
+      setPendingComments((prev) => prev.filter((c) => c.id !== commentId));
+      if (selectedCommentId === commentId) {
+        setSelectedCommentId(null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete comment");
+    } finally {
+      setActionLoadingId(null);
+    }
   };
 
-  const statusColor = (s: string) => {
-    const map: Record<string, string> = {
-      pending: "bg-yellow-500/10 text-yellow-400",
-      approved: "bg-green-500/10 text-green-400",
-      rejected: "bg-red-500/10 text-red-400",
-      escalated: "bg-purple-500/10 text-purple-400",
-    };
-    return map[s] || map.pending;
-  };
+  const selectedPost = useMemo(
+    () => pendingPosts.find((p) => p.id === selectedPostId) || null,
+    [pendingPosts, selectedPostId]
+  );
 
-  const stats = [
-    { label: "Queue", value: posts.filter((p) => p.status === "pending").length, icon: "pending_actions", color: "text-yellow-400" },
-    { label: "Approved", value: posts.filter((p) => p.status === "approved").length, icon: "check_circle", color: "text-green-400" },
-    { label: "Rejected", value: posts.filter((p) => p.status === "rejected").length, icon: "cancel", color: "text-red-400" },
-    { label: "Escalated", value: posts.filter((p) => p.status === "escalated").length, icon: "warning", color: "text-purple-400" },
-  ];
+  const selectedComment = useMemo(
+    () => pendingComments.find((c) => c.id === selectedCommentId) || null,
+    [pendingComments, selectedCommentId]
+  );
+
+  const postCount = pendingPosts.length;
+  const commentCount = pendingComments.length;
 
   return (
     <div className="dark min-h-screen bg-background text-on-background font-body">
@@ -146,205 +249,244 @@ export default function ModerationPage() {
       <AdminTopNav activePage="moderation" />
 
       <main className="md:ml-64 pt-20 min-h-screen p-8">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6">
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-5xl font-extrabold font-headline tracking-tighter text-white mb-2">
-              Content <span className="text-primary italic">Moderation</span>
+            <h2 className="text-4xl font-extrabold font-headline tracking-tighter text-white flex items-center gap-3">
+              Content Moderation
+              <AiBadge variant="chip" label="AI-assisted" />
             </h2>
-            <p className="text-on-surface-variant text-sm">Review flagged content with AI-assisted analysis.</p>
+            <p className="text-sm text-on-surface-variant mt-1">
+              Review pending blog posts and user comments in real time. AI flags suspicious content automatically.
+            </p>
           </div>
-          <div className="flex gap-3">
-            <button className="px-5 py-2.5 bg-surface-container-high border border-outline-variant/20 rounded-lg text-xs font-bold text-on-surface-variant hover:text-on-surface transition-all">
-              <span className="material-symbols-outlined text-sm mr-1 align-middle">history</span>
-              History
-            </button>
-            <button className="px-5 py-2.5 bg-linear-to-r from-primary to-primary-container text-on-primary-fixed rounded-lg text-xs font-bold hover:scale-[1.02] transition-all shadow-lg shadow-primary/20">
-              <span className="material-symbols-outlined text-sm mr-1 align-middle">auto_fix_high</span>
-              Auto-Review
-            </button>
+          <button
+            onClick={fetchModerationData}
+            className="px-4 py-2 rounded-lg bg-primary text-on-primary text-xs font-bold"
+          >
+            Refresh Queue
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-6 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-300 text-sm">
+            {error}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+          <div className="glass-panel rounded-xl p-4">
+            <p className="text-[10px] uppercase tracking-wider text-on-surface-variant">Pending Posts</p>
+            <p className="text-2xl font-bold mt-1">{postCount}</p>
+          </div>
+          <div className="glass-panel rounded-xl p-4">
+            <p className="text-[10px] uppercase tracking-wider text-on-surface-variant">Pending Comments</p>
+            <p className="text-2xl font-bold mt-1">{commentCount}</p>
+          </div>
+          <div className="glass-panel rounded-xl p-4">
+            <p className="text-[10px] uppercase tracking-wider text-on-surface-variant">Total Queue</p>
+            <p className="text-2xl font-bold mt-1">{postCount + commentCount}</p>
+          </div>
+          <div className="glass-panel rounded-xl p-4">
+            <p className="text-[10px] uppercase tracking-wider text-on-surface-variant">Auto Refresh</p>
+            <p className="text-sm mt-2 text-green-400">Every 5m</p>
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-          {stats.map((s) => (
-            <div key={s.label} className="glass-panel rounded-xl p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`material-symbols-outlined text-sm ${s.color}`}>{s.icon}</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">{s.label}</span>
-              </div>
-              <span className="text-2xl font-extrabold font-headline">{s.value}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Filter Tabs */}
         <div className="flex gap-2 mb-6">
-          {(["all", "pending", "approved", "rejected", "escalated"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-                filter === f ? "bg-primary text-on-primary" : "bg-surface-container-high text-on-surface-variant hover:text-on-surface"
-              }`}
-            >
-              {f}
-            </button>
-          ))}
+          <button
+            onClick={() => setActiveTab("posts")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase ${activeTab === "posts" ? "bg-primary text-on-primary" : "bg-surface-container-high text-on-surface-variant"}`}
+          >
+            Pending Posts ({postCount})
+          </button>
+          <button
+            onClick={() => setActiveTab("comments")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase ${activeTab === "comments" ? "bg-primary text-on-primary" : "bg-surface-container-high text-on-surface-variant"}`}
+          >
+            Pending Comments ({commentCount})
+          </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Queue List */}
-          <div className="lg:col-span-1 space-y-3 max-h-[calc(100vh-320px)] overflow-y-auto pr-2">
-            {filteredPosts.map((post) => (
-              <button
-                key={post.id}
-                onClick={() => setSelectedPost(post)}
-                className={`w-full text-left glass-panel rounded-xl p-4 transition-all hover:border-primary/20 ${
-                  selectedPost?.id === post.id ? "border-primary/30 bg-surface-container" : ""
-                }`}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <h4 className="text-sm font-bold truncate flex-1 mr-2">{post.title}</h4>
-                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${severityColor(post.severity)}`}>
-                    {post.severity}
-                  </span>
-                </div>
-                <p className="text-xs text-on-surface-variant line-clamp-2 mb-2">{post.excerpt}</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-on-surface-variant">{post.author}</span>
-                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${statusColor(post.status)}`}>
-                    {post.status}
-                  </span>
-                </div>
-              </button>
-            ))}
-            {filteredPosts.length === 0 && (
-              <div className="text-center py-12 text-on-surface-variant">
-                <span className="material-symbols-outlined text-4xl mb-2 block">inbox</span>
-                <p className="text-sm">No items in this queue</p>
-              </div>
+          <div className="lg:col-span-1 space-y-3 max-h-[70vh] overflow-y-auto pr-2">
+            {fetching ? (
+              <div className="glass-panel rounded-xl p-6 text-sm text-on-surface-variant">Loading moderation queue...</div>
+            ) : activeTab === "posts" ? (
+              pendingPosts.length === 0 ? (
+                <div className="glass-panel rounded-xl p-6 text-sm text-on-surface-variant">No pending posts.</div>
+              ) : (
+                pendingPosts.map((post) => (
+                  <button
+                    key={post.id}
+                    onClick={() => setSelectedPostId(post.id)}
+                    className={`w-full text-left glass-panel rounded-xl p-4 transition-all ${selectedPostId === post.id ? "border border-primary/30" : "hover:border hover:border-primary/20"}`}
+                  >
+                    <p className="text-sm font-bold line-clamp-2">{post.title}</p>
+                    <p className="text-xs text-on-surface-variant mt-1">By {post.author_name || "Unknown"}</p>
+                    <p className="text-[11px] text-on-surface-variant mt-2">{new Date(post.created_at).toLocaleString()}</p>
+                  </button>
+                ))
+              )
+            ) : pendingComments.length === 0 ? (
+              <div className="glass-panel rounded-xl p-6 text-sm text-on-surface-variant">No pending comments.</div>
+            ) : (
+              pendingComments.map((comment) => (
+                <button
+                  key={comment.id}
+                  onClick={() => setSelectedCommentId(comment.id)}
+                  className={`w-full text-left glass-panel rounded-xl p-4 transition-all ${selectedCommentId === comment.id ? "border border-primary/30" : "hover:border hover:border-primary/20"}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm line-clamp-2">{comment.content}</p>
+                    {comment.flagged_as_spam && (
+                      <span className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-red-500/20 text-red-300 border border-red-500/30">
+                        <span className="material-symbols-outlined text-[8px]">auto_awesome</span>
+                        AI Flagged
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-on-surface-variant mt-1">
+                    By {comment.author_name || comment.guest_name || "Anonymous"}
+                  </p>
+                  <p className="text-[11px] text-on-surface-variant mt-2">{new Date(comment.created_at).toLocaleString()}</p>
+                </button>
+              ))
             )}
           </div>
 
-          {/* Detail Panel */}
           <div className="lg:col-span-2">
-            {selectedPost ? (
-              <div className="glass-panel rounded-xl p-6">
-                {/* Post Header */}
-                <div className="flex items-start justify-between mb-6">
-                  <div>
-                    <h3 className="text-xl font-bold font-headline mb-1">{selectedPost.title}</h3>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full overflow-hidden">
-                          <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedPost.authorEmail}`} alt="" className="w-full h-full" />
-                        </div>
-                        <span className="text-xs font-medium">{selectedPost.author}</span>
-                      </div>
-                      <span className="text-xs text-on-surface-variant">Flagged {selectedPost.flaggedAt}</span>
+            {activeTab === "posts" ? (
+              selectedPost ? (
+                <div className="glass-panel rounded-xl p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="text-xl font-bold">{selectedPost.title}</h3>
+                    <span className="text-[10px] uppercase px-2 py-1 rounded bg-yellow-500/10 text-yellow-300">Pending</span>
+                  </div>
+
+                  <div className="flex items-center gap-3 mb-4">
+                    <img
+                      src={selectedPost.author_avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedPost.author_id || selectedPost.author_name || 'author'}`}
+                      alt="author"
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                    <div>
+                      <p className="text-sm font-semibold">{selectedPost.author_name || "Unknown Author"}</p>
+                      <p className="text-xs text-on-surface-variant">User ID: {selectedPost.author_id || "N/A"}</p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${severityColor(selectedPost.severity)}`}>
-                      {selectedPost.severity}
-                    </span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${statusColor(selectedPost.status)}`}>
-                      {selectedPost.status}
-                    </span>
+
+                  <p className="text-sm text-on-surface-variant leading-relaxed mb-4">
+                    {selectedPost.excerpt || "No excerpt provided."}
+                  </p>
+
+                  {/* AI Suggestion */}
+                  <div className="mb-6 p-3 rounded-lg bg-violet-500/8 border border-violet-500/20">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <AiBadge variant="chip" label="AI Suggestion" />
+                    </div>
+                    <p className="text-xs text-on-surface-variant">
+                      Content quality looks good. No spam or policy violations detected. Recommended: <strong className="text-green-300">Approve</strong>.
+                    </p>
                   </div>
-                </div>
 
-                {/* Reason */}
-                <div className="p-4 rounded-lg bg-surface-container-low mb-4">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">Flag Reason</p>
-                  <p className="text-sm">{selectedPost.reason}</p>
-                </div>
-
-                {/* Content Preview */}
-                <div className="p-4 rounded-lg bg-surface-container-low mb-4">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">Content Preview</p>
-                  <p className="text-sm text-on-surface-variant leading-relaxed">{selectedPost.excerpt}</p>
-                </div>
-
-                {/* AI Analysis */}
-                <div className="p-4 rounded-lg bg-surface-container-low mb-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">AI Context Analysis</p>
+                  <div className="flex gap-3">
                     <button
-                      onClick={handleAIAnalysis}
-                      disabled={analyzing}
-                      className="px-3 py-1 bg-primary/10 text-primary rounded text-[10px] font-bold hover:bg-primary/20 transition-colors disabled:opacity-50"
+                      onClick={() => runModerationAction("post", selectedPost.id, "approve")}
+                      disabled={actionLoadingId === selectedPost.id + "approve"}
+                      className="flex-1 px-4 py-3 rounded-lg bg-green-500/10 text-green-300 font-bold text-xs uppercase"
                     >
-                      {analyzing ? "Analyzing..." : "Run Analysis"}
+                      {actionLoadingId === selectedPost.id + "approve" ? "Approving..." : "Approve Post"}
+                    </button>
+                    <button
+                      onClick={() => runModerationAction("post", selectedPost.id, "reject")}
+                      disabled={actionLoadingId === selectedPost.id + "reject"}
+                      className="flex-1 px-4 py-3 rounded-lg bg-red-500/10 text-red-300 font-bold text-xs uppercase"
+                    >
+                      {actionLoadingId === selectedPost.id + "reject" ? "Rejecting..." : "Reject Post"}
+                    </button>
+                    <button
+                      onClick={() => deletePostPermanently(selectedPost.id)}
+                      disabled={actionLoadingId === selectedPost.id + "delete"}
+                      className="flex-1 px-4 py-3 rounded-lg bg-rose-600/20 text-rose-200 font-bold text-xs uppercase"
+                    >
+                      {actionLoadingId === selectedPost.id + "delete" ? "Deleting..." : "Delete Post"}
                     </button>
                   </div>
-                  {selectedPost.aiAnalysis ? (
-                    <p className="text-sm text-on-surface-variant leading-relaxed">{selectedPost.aiAnalysis}</p>
-                  ) : (
-                    <p className="text-sm text-on-surface-variant italic">Click &quot;Run Analysis&quot; for AI-powered content assessment.</p>
-                  )}
+                </div>
+              ) : (
+                <div className="glass-panel rounded-xl p-8 text-on-surface-variant">Select a pending post to review.</div>
+              )
+            ) : selectedComment ? (
+              <div className="glass-panel rounded-xl p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="text-xl font-bold">Pending Comment</h3>
+                  <span className="text-[10px] uppercase px-2 py-1 rounded bg-yellow-500/10 text-yellow-300">Pending</span>
                 </div>
 
-                {/* Actions */}
+                <div className="flex items-center gap-3 mb-4">
+                  <img
+                    src={selectedComment.author_avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedComment.user_id || selectedComment.guest_name || 'guest'}`}
+                    alt="comment-author"
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold">{selectedComment.author_name || selectedComment.guest_name || "Anonymous"}</p>
+                    <p className="text-xs text-on-surface-variant">User ID: {selectedComment.user_id || "Guest"}</p>
+                    {selectedComment.post_title && (
+                      <p className="text-xs text-on-surface-variant">Post: {selectedComment.post_title}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-lg bg-surface-container-low mb-4">
+                  <p className="text-sm leading-relaxed">{selectedComment.content}</p>
+                </div>
+
+                {/* AI Suggestion */}
+                <div className="mb-6 p-3 rounded-lg bg-violet-500/8 border border-violet-500/20">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <AiBadge variant="chip" label="AI Analysis" />
+                  </div>
+                  <p className="text-xs text-on-surface-variant">
+                    {selectedComment.flagged_as_spam
+                      ? "⚠️ This comment was auto-flagged for potential spam. Review carefully before approving."
+                      : "No policy violations detected. Sentiment appears neutral or positive. Recommended: Approve."}
+                  </p>
+                </div>
+
                 <div className="flex gap-3">
                   <button
-                    onClick={() => handleAction(selectedPost.id, "approved")}
-                    className="flex-1 px-4 py-3 bg-green-500/10 text-green-400 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-green-500/20 transition-all"
+                    onClick={() => runModerationAction("comment", selectedComment.id, "approve")}
+                    disabled={actionLoadingId === selectedComment.id + "approve"}
+                    className="flex-1 px-4 py-3 rounded-lg bg-green-500/10 text-green-300 font-bold text-xs uppercase"
                   >
-                    <span className="material-symbols-outlined text-sm mr-1 align-middle">check_circle</span>
-                    Approve
+                    {actionLoadingId === selectedComment.id + "approve" ? "Approving..." : "Approve"}
                   </button>
                   <button
-                    onClick={() => handleAction(selectedPost.id, "rejected")}
-                    className="flex-1 px-4 py-3 bg-red-500/10 text-red-400 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-red-500/20 transition-all"
+                    onClick={() => runModerationAction("comment", selectedComment.id, "reject")}
+                    disabled={actionLoadingId === selectedComment.id + "reject"}
+                    className="flex-1 px-4 py-3 rounded-lg bg-red-500/10 text-red-300 font-bold text-xs uppercase"
                   >
-                    <span className="material-symbols-outlined text-sm mr-1 align-middle">cancel</span>
-                    Reject
+                    {actionLoadingId === selectedComment.id + "reject" ? "Rejecting..." : "Reject"}
                   </button>
                   <button
-                    onClick={() => handleAction(selectedPost.id, "escalated")}
-                    className="flex-1 px-4 py-3 bg-purple-500/10 text-purple-400 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-purple-500/20 transition-all"
+                    onClick={() => runModerationAction("comment", selectedComment.id, "flag")}
+                    disabled={actionLoadingId === selectedComment.id + "flag"}
+                    className="flex-1 px-4 py-3 rounded-lg bg-orange-500/10 text-orange-300 font-bold text-xs uppercase"
                   >
-                    <span className="material-symbols-outlined text-sm mr-1 align-middle">escalator_warning</span>
-                    Escalate
+                    {actionLoadingId === selectedComment.id + "flag" ? "Flagging..." : "Flag"}
                   </button>
-                </div>
-
-                <button
-                  onClick={() => handleDeletePost(selectedPost.id)}
-                  disabled={deletingPostId === selectedPost.id}
-                  className="mt-3 w-full px-4 py-3 bg-red-500/10 text-red-400 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-red-500/20 transition-all disabled:opacity-60"
-                >
-                  <span className="material-symbols-outlined text-sm mr-1 align-middle">delete_forever</span>
-                  {deletingPostId === selectedPost.id ? "Deleting..." : "Delete Post"}
-                </button>
-
-                {/* Resolution Log */}
-                <div className="mt-6 pt-6 border-t border-outline-variant/10">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-3">Resolution History</h4>
-                  <div className="space-y-3">
-                    {[
-                      { action: "Content flagged by automated system", time: selectedPost.flaggedAt, actor: "System" },
-                      { action: "Assigned to moderation queue", time: selectedPost.flaggedAt, actor: "Auto-router" },
-                    ].map((log, i) => (
-                      <div key={i} className="flex items-center gap-3">
-                        <div className="w-1.5 h-1.5 rounded-full bg-outline-variant"></div>
-                        <div className="flex-1">
-                          <p className="text-xs">{log.action}</p>
-                          <p className="text-[10px] text-on-surface-variant">{log.actor} • {log.time}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <button
+                    onClick={() => deleteCommentPermanently(selectedComment.id)}
+                    disabled={actionLoadingId === selectedComment.id + "delete"}
+                    className="flex-1 px-4 py-3 rounded-lg bg-rose-600/20 text-rose-200 font-bold text-xs uppercase"
+                  >
+                    {actionLoadingId === selectedComment.id + "delete" ? "Deleting..." : "Delete"}
+                  </button>
                 </div>
               </div>
             ) : (
-              <div className="glass-panel rounded-xl p-12 text-center text-on-surface-variant">
-                <span className="material-symbols-outlined text-5xl mb-3 block">gavel</span>
-                <p className="text-sm">Select an item from the queue to review</p>
-              </div>
+              <div className="glass-panel rounded-xl p-8 text-on-surface-variant">Select a pending comment to review.</div>
             )}
           </div>
         </div>

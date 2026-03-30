@@ -540,6 +540,7 @@ export function example(input: string) {
           content,
           excerpt: excerpt || content.substring(0, 150),
           topic,
+          category,
           cover_image_url: coverImageUrl || null,
           ai_generated: isAiGenerated,
           userId: user.id,
@@ -670,6 +671,7 @@ export function example(input: string) {
           content,
           excerpt: excerpt || content.substring(0, 150),
           topic,
+          category,
           cover_image_url: coverImageUrl || null,
           ai_generated: isAiGenerated,
           userId: user.id,
@@ -690,7 +692,7 @@ export function example(input: string) {
       setSaveStatus("unsaved");
       console.error("Auto-save failed:", err);
     }
-  }, [title, content, excerpt, topic, coverImageUrl, isAiGenerated, user, isEditing, editId, router]);
+  }, [title, content, excerpt, topic, category, coverImageUrl, isAiGenerated, user, isEditing, editId, router]);
 
   useEffect(() => {
     const autoSaveTimer = setInterval(() => {

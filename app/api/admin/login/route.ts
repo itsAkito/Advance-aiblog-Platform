@@ -12,22 +12,34 @@ export async function POST(request: NextRequest) {
     }
 
     // Get admin credentials from environment
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@gmail.com';
-    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@gmail.com';
+    const adminPassword = process.env.ADMIN_PASSWORD || process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'admin123';
 
     // Simple credential check (for development)
     if (email.toLowerCase() === adminEmail.toLowerCase() && password === adminPassword) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         {
           message: 'Admin login successful',
           admin: {
             email: adminEmail,
             role: 'admin',
           },
-          token: Buffer.from(`${email}:${Date.now()}`).toString('base64'),
         },
         { status: 200 }
       );
+
+      const tokenPayload = `${adminEmail}:${Date.now()}`;
+      const token = Buffer.from(tokenPayload).toString('base64');
+
+      response.cookies.set('admin_session_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 8,
+      });
+
+      return response;
     }
 
     return NextResponse.json(

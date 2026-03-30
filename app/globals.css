@@ -17,6 +17,73 @@
     color: transparent;
   }
 
+  /* Multi-color gradient text variant */
+  .text-gradient-multi {
+    background: linear-gradient(135deg, #60a5fa, #a78bfa, #34d399, #f472b6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  /* Gradient card border glow on hover */
+  .card-gradient-hover {
+    position: relative;
+    transition: all 0.35s ease;
+  }
+  .card-gradient-hover::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(96, 165, 250, 0.6), rgba(167, 139, 250, 0.6), rgba(52, 211, 153, 0.5));
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    z-index: -1;
+  }
+  .card-gradient-hover:hover::before {
+    opacity: 1;
+  }
+
+  /* Ambient gradient glow blobs reusable */
+  .gradient-blob-blue {
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.35), transparent 70%);
+    filter: blur(80px);
+    pointer-events: none;
+  }
+  .gradient-blob-purple {
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.30), transparent 70%);
+    filter: blur(80px);
+    pointer-events: none;
+  }
+  .gradient-blob-emerald {
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.28), transparent 70%);
+    filter: blur(80px);
+    pointer-events: none;
+  }
+  .gradient-blob-pink {
+    background: radial-gradient(circle, rgba(236, 72, 153, 0.25), transparent 70%);
+    filter: blur(80px);
+    pointer-events: none;
+  }
+
+  /* Hero section gradient overlay */
+  .hero-gradient {
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(59, 130, 246, 0.18) 0%, transparent 55%),
+      radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.18) 0%, transparent 50%),
+      radial-gradient(ellipse at 60% 80%, rgba(16, 185, 129, 0.14) 0%, transparent 50%),
+      radial-gradient(ellipse at 10% 80%, rgba(236, 72, 153, 0.10) 0%, transparent 45%);
+  }
+
+  /* Section alternate gradient backgrounds */
+  .section-gradient-blue {
+    background: linear-gradient(165deg, rgba(59, 130, 246, 0.08) 0%, transparent 50%, rgba(16, 185, 129, 0.06) 100%);
+  }
+  .section-gradient-purple {
+    background: linear-gradient(165deg, rgba(139, 92, 246, 0.09) 0%, transparent 55%, rgba(59, 130, 246, 0.07) 100%);
+  }
+
   .material-symbols-outlined {
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
   }

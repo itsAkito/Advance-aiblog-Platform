@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import AdminSideNav from "@/components/AdminSideNav";
 import AdminTopNav from "@/components/AdminTopNav";
+import { AiBadge } from "@/components/AiBadge";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,6 +38,15 @@ interface RecentComment {
   status: "approved" | "pending";
 }
 
+interface AdminOverview {
+  pendingPosts: number;
+  pendingComments: number;
+  mostViewedPost: { id: string; title: string; views: number } | null;
+  leastViewedPost: { id: string; title: string; views: number } | null;
+  mostLikedPost: { id: string; title: string; likes_count: number } | null;
+  topAuthorsByFollowers: Array<{ id: string; name: string; followers: number; avatar_url?: string | null }>;
+}
+
 export default function AdminPage() {
   const { user, isAdmin, loading } = useAuth();
   const router = useRouter();
@@ -52,6 +62,14 @@ export default function AdminPage() {
   const [topCreators, setTopCreators] = useState<TopCreator[]>([]);
   const [recentComments, setRecentComments] = useState<RecentComment[]>([]);
   const [logsLoading, setLogsLoading] = useState(true);
+  const [overview, setOverview] = useState<AdminOverview>({
+    pendingPosts: 0,
+    pendingComments: 0,
+    mostViewedPost: null,
+    leastViewedPost: null,
+    mostLikedPost: null,
+    topAuthorsByFollowers: [],
+  });
 
   useEffect(() => {
     if (loading) return;
@@ -86,12 +104,13 @@ export default function AdminPage() {
 
     const fetchStats = async () => {
       try {
-        const [usersRes, postsRes, commentsRes, analyticsRes, jobsRes] = await Promise.all([
+        const [usersRes, postsRes, commentsRes, analyticsRes, jobsRes, overviewRes] = await Promise.all([
           fetch("/api/admin/users"),
           fetch("/api/posts?limit=100"),
           fetch("/api/comments?limit=50"),
           fetch("/api/analytics?timeframe=7d"),
           fetch("/api/arjuna/jobs?limit=100"),
+          fetch("/api/admin/overview"),
         ]);
 
         const usersData = usersRes.ok ? await usersRes.json() : {};
@@ -99,6 +118,7 @@ export default function AdminPage() {
         const commentsData = commentsRes.ok ? await commentsRes.json() : {};
         const analyticsData = analyticsRes.ok ? await analyticsRes.json() : {};
         const jobsData = jobsRes.ok ? await jobsRes.json() : {};
+        const overviewData = overviewRes.ok ? await overviewRes.json() : {};
 
         const allUsers = usersData.users || [];
         const allPosts = postsData.posts || [];
@@ -113,6 +133,15 @@ export default function AdminPage() {
           jobApplications: analyticsData.summary?.jobApplicationsThisPeriod || 0,
           openJobs: allJobs.length,
           systemHealth: 98.7,
+        });
+
+        setOverview({
+          pendingPosts: overviewData.pendingPosts || 0,
+          pendingComments: overviewData.pendingComments || 0,
+          mostViewedPost: overviewData.mostViewedPost || null,
+          leastViewedPost: overviewData.leastViewedPost || null,
+          mostLikedPost: overviewData.mostLikedPost || null,
+          topAuthorsByFollowers: overviewData.topAuthorsByFollowers || [],
         });
 
         const creatorMap: Record<string, { name: string; posts: number; views: number; email: string }> = {};
@@ -166,12 +195,12 @@ export default function AdminPage() {
   }, [loading, user, isAdmin]);
 
   const statCards = [
-    { label: "Total Users", value: stats.totalUsers.toLocaleString(), icon: "group", change: `+${stats.totalUsers > 0 ? Math.floor(Math.random() * 20) : 0}%`, color: "text-primary" },
-    { label: "Published Posts", value: stats.totalPosts.toLocaleString(), icon: "article", change: `+${stats.totalPosts > 0 ? Math.floor(Math.random() * 15) : 0}%`, color: "text-secondary" },
-    { label: "Total Comments", value: stats.totalComments.toLocaleString(), icon: "forum", change: `+${stats.totalComments > 0 ? Math.floor(Math.random() * 25) : 0}%`, color: "text-green-400" },
-    { label: "Active Subscriptions", value: stats.activeSubscriptions.toLocaleString(), icon: "card_membership", change: "Tracking", color: "text-tertiary" },
-    { label: "Job Applications", value: stats.jobApplications.toLocaleString(), icon: "work", change: "This Week", color: "text-blue-400" },
-    { label: "Open Jobs", value: stats.openJobs.toLocaleString(), icon: "assignment", change: "Active", color: "text-orange-400" },
+    { label: "Total Users", value: stats.totalUsers.toLocaleString(), icon: "group", change: `+${stats.totalUsers > 0 ? Math.floor(Math.random() * 20) : 0}%`, color: "text-primary", aiDerived: false },
+    { label: "Published Posts", value: stats.totalPosts.toLocaleString(), icon: "article", change: `+${stats.totalPosts > 0 ? Math.floor(Math.random() * 15) : 0}%`, color: "text-secondary", aiDerived: true },
+    { label: "Total Comments", value: stats.totalComments.toLocaleString(), icon: "forum", change: `+${stats.totalComments > 0 ? Math.floor(Math.random() * 25) : 0}%`, color: "text-green-400", aiDerived: false },
+    { label: "Active Subscriptions", value: stats.activeSubscriptions.toLocaleString(), icon: "card_membership", change: "Tracking", color: "text-tertiary", aiDerived: true },
+    { label: "Job Applications", value: stats.jobApplications.toLocaleString(), icon: "work", change: "This Week", color: "text-blue-400", aiDerived: true },
+    { label: "Open Jobs", value: stats.openJobs.toLocaleString(), icon: "assignment", change: "Active", color: "text-orange-400", aiDerived: false },
   ];
 
   return (
@@ -207,7 +236,10 @@ export default function AdminPage() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className={`material-symbols-outlined text-sm ${card.color}`}>{card.icon}</span>
-                  <span className="text-[8px] font-bold uppercase tracking-wider text-on-surface-variant text-right">{card.label}</span>
+                  <div className="flex items-center gap-1 text-right">
+                    {card.aiDerived && <AiBadge variant="compact" />}
+                    <span className="text-[8px] font-bold uppercase tracking-wider text-on-surface-variant">{card.label}</span>
+                  </div>
                 </div>
                 <div className="flex items-baseline gap-1">
                   <span className="text-2xl font-extrabold font-headline">{card.value}</span>
@@ -216,6 +248,71 @@ export default function AdminPage() {
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+          <Card className="bg-white/4 backdrop-blur-xl border-white/10 shadow-xl shadow-black/20">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-bold font-headline mb-4 flex items-center gap-2">
+                Post Performance Signals
+                <AiBadge />
+              </h3>
+              <div className="space-y-3 text-sm">
+                <div className="p-3 rounded-lg bg-white/4 border border-white/10">
+                  <p className="text-[10px] uppercase tracking-wider text-on-surface-variant">Most Viewed Post</p>
+                  <p className="font-semibold mt-1">{overview.mostViewedPost?.title || "N/A"}</p>
+                  <p className="text-on-surface-variant text-xs mt-1">Views: {overview.mostViewedPost?.views || 0}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-white/4 border border-white/10">
+                  <p className="text-[10px] uppercase tracking-wider text-on-surface-variant">Least Viewed Post</p>
+                  <p className="font-semibold mt-1">{overview.leastViewedPost?.title || "N/A"}</p>
+                  <p className="text-on-surface-variant text-xs mt-1">Views: {overview.leastViewedPost?.views || 0}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-white/4 border border-white/10">
+                  <p className="text-[10px] uppercase tracking-wider text-on-surface-variant">Most Liked Post</p>
+                  <p className="font-semibold mt-1">{overview.mostLikedPost?.title || "N/A"}</p>
+                  <p className="text-on-surface-variant text-xs mt-1">Likes: {overview.mostLikedPost?.likes_count || 0}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/4 backdrop-blur-xl border-white/10 shadow-xl shadow-black/20">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-bold font-headline mb-4">Approvals & Top Authors</h3>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                  <p className="text-[10px] uppercase tracking-wider text-yellow-200">Pending Posts</p>
+                  <p className="text-xl font-bold mt-1">{overview.pendingPosts}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/30">
+                  <p className="text-[10px] uppercase tracking-wider text-orange-200">Pending Comments</p>
+                  <p className="text-xl font-bold mt-1">{overview.pendingComments}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {(overview.topAuthorsByFollowers || []).slice(0, 4).map((author) => (
+                  <div key={author.id} className="flex items-center justify-between p-2 rounded bg-white/4 border border-white/10">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Avatar className="h-7 w-7 rounded-full">
+                        <AvatarImage src={author.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${author.id}`} />
+                        <AvatarFallback>{author.name?.charAt(0) || "U"}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold truncate">{author.name}</p>
+                        <p className="text-[10px] text-on-surface-variant truncate">ID: {author.id}</p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-[10px]">{author.followers} followers</Badge>
+                  </div>
+                ))}
+                {overview.topAuthorsByFollowers.length === 0 && (
+                  <p className="text-xs text-on-surface-variant">No author follower data yet.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -264,7 +361,10 @@ export default function AdminPage() {
           {/* Top AI Creators */}
           <Card className="bg-white/4 backdrop-blur-xl border-white/10 shadow-xl shadow-black/20">
             <CardContent className="p-6">
-              <h3 className="text-lg font-bold font-headline mb-6">Top AI Creators</h3>
+              <h3 className="text-lg font-bold font-headline mb-6 flex items-center gap-2">
+                Top AI Creators
+                <AiBadge variant="chip" label="AI-ranked" />
+              </h3>
               <div className="space-y-4">
                 {topCreators.map((creator, idx) => (
                   <div key={`creator-${idx}`} className="flex items-center gap-3 p-3 rounded-lg bg-white/3 border border-white/10 hover:bg-white/8 hover:border-primary/20 transition-all">

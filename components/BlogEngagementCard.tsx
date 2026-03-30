@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Heart, MessageCircle, Share2, Eye, Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 interface BlogEngagementCardProps {
   blogId: string;
@@ -29,11 +29,7 @@ export function BlogEngagementCard({ blogId, onRefresh }: BlogEngagementCardProp
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchStats();
-  }, [blogId]);
-
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -49,7 +45,11 @@ export function BlogEngagementCard({ blogId, onRefresh }: BlogEngagementCardProp
     } finally {
       setLoading(false);
     }
-  };
+  }, [blogId]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   if (loading) {
     return (

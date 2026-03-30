@@ -1,6 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getAuthUserId } from '@/lib/auth-helpers';
+import { logActivity } from '@/lib/activity-log';
+
+function isMissingUserFollowsTableError(error: unknown): boolean {
+  const code = typeof error === 'object' && error !== null ? (error as { code?: string }).code : undefined;
+  const message = String((error as any)?.message || '').toLowerCase();
+  return (
+    code === 'PGRST205' ||
+    (message.includes('user_follows') && (message.includes('does not exist') || message.includes('could not find')))
+  );
+}
+
+function isMissingFollowRequestsTableError(error: unknown): boolean {
+  const code = typeof error === 'object' && error !== null ? (error as { code?: string }).code : undefined;
+  const message = String((error as any)?.message || '').toLowerCase();
+  return (
+    code === 'PGRST205' ||
+    (message.includes('follow_requests') && (message.includes('does not exist') || message.includes('could not find')))
+  );
+}
 
 function isFollowRequestSchemaError(error: unknown): boolean {
   const message = String((error as any)?.message || '').toLowerCase();
@@ -33,7 +52,16 @@ export async function GET(request: NextRequest) {
         .order('created_at', { ascending: false })
         .limit(100);
 
-      if (error) throw error;
+      if (error) {
+        if (isMissingFollowRequestsTableError(error)) {
+          return NextResponse.json({
+            requests: [],
+            count: 0,
+            warning: 'Follow requests are unavailable because follow_requests table is missing in this environment.',
+          });
+        }
+        throw error;
+      }
 
       const requesterIds = [...new Set((data || []).map((r) => r.from_user_id))];
       let profilesById: Record<string, { name?: string; email?: string; avatar_url?: string }> = {};
@@ -71,7 +99,16 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      if (isMissingUserFollowsTableError(error)) {
+        return NextResponse.json({
+          follows: [],
+          count: 0,
+          warning: 'Follow data is unavailable because user_follows table is missing in this environment.',
+        });
+      }
+      throw error;
+    }
 
     const ids = [...new Set((data || []).map((f) => (type === 'followers' ? f.follower_id : f.following_id)))];
     let profilesById: Record<string, { name?: string; email?: string; avatar_url?: string }> = {};
@@ -123,16 +160,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Cannot follow yourself' }, { status: 400 });
     }
 
-    const { data: alreadyFollowing } = await supabase
+    const alreadyFollowingResult = await supabase
       .from('user_follows')
       .select('id')
       .eq('follower_id', followerUserId)
       .eq('following_id', followingUserId)
       .single();
 
+    if (alreadyFollowingResult.error && !isMissingUserFollowsTableError(alreadyFollowingResult.error)) {
+      throw alreadyFollowingResult.error;
+    }
+
+    const alreadyFollowing = alreadyFollowingResult.data;
+
     if (alreadyFollowing) {
       return NextResponse.json({ success: true, message: 'Already following', status: 'accepted' });
     }
+
+    const canUseUserFollows = !isMissingUserFollowsTableError(alreadyFollowingResult.error);
 
     let requestId: string | undefined;
     let status: 'pending' | 'accepted' = 'pending';
@@ -185,6 +230,17 @@ export async function POST(request: NextRequest) {
         throw followRequestError;
       }
 
+      if (!canUseUserFollows) {
+        return NextResponse.json(
+          {
+            success: false,
+            status: 'unavailable',
+            message: 'Follow feature is temporarily unavailable in this environment.',
+          },
+          { status: 503 }
+        );
+      }
+
       const { error: directFollowError } = await supabase
         .from('user_follows')
         .upsert(
@@ -193,6 +249,16 @@ export async function POST(request: NextRequest) {
         );
 
       if (directFollowError) {
+        if (isMissingUserFollowsTableError(directFollowError)) {
+          return NextResponse.json(
+            {
+              success: false,
+              status: 'unavailable',
+              message: 'Follow feature is temporarily unavailable in this environment.',
+            },
+            { status: 503 }
+          );
+        }
         throw directFollowError;
       }
 
@@ -220,6 +286,18 @@ export async function POST(request: NextRequest) {
             : `${followerName} started following you`,
         action_url: status === 'pending' && requestId ? `follow_request:${requestId}` : null,
         icon: 'person_add',
+      });
+
+      await logActivity({
+        userId: followerUserId,
+        activityType: 'admin_action',
+        entityType: 'user',
+        entityId: followingUserId,
+        metadata: {
+          action: status === 'pending' ? 'follow_request_sent' : 'follow_created',
+          requestId: requestId || null,
+          status,
+        },
       });
     } catch (notificationError) {
       console.warn('Failed to create follow request notification:', notificationError);
@@ -261,7 +339,15 @@ export async function DELETE(request: NextRequest) {
       .eq('follower_id', followerUserId)
       .eq('following_id', followingUserId);
 
-    if (error) throw error;
+    if (error) {
+      if (isMissingUserFollowsTableError(error)) {
+        return NextResponse.json({
+          success: false,
+          message: 'Follow feature is temporarily unavailable in this environment.',
+        });
+      }
+      throw error;
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -17,6 +17,10 @@ function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+function isOtpDevTestMode(): boolean {
+  return process.env.NODE_ENV !== 'production' && process.env.OTP_DEV_TEST_MODE === 'true';
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json();
@@ -28,6 +32,14 @@ export async function POST(request: NextRequest) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
+    }
+
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@gmail.com';
+    if (email.toLowerCase() === adminEmail.toLowerCase()) {
+      return NextResponse.json(
+        { error: 'Admin email must use admin email/password login.' },
+        { status: 403 }
+      );
     }
 
     // Validate Supabase is configured
@@ -64,7 +76,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(
             { 
               error: 'OTP service not initialized. Please run database migrations.',
-              otp: process.env.NODE_ENV === 'development' ? otp : undefined // For testing only
+              otp: isOtpDevTestMode() ? otp : undefined
             }, 
             { status: 503 }
           );
@@ -92,7 +104,7 @@ export async function POST(request: NextRequest) {
             gmailSetup: 'Get App Password from: https://myaccount.google.com/apppasswords',
             testEndpoint: '/api/admin/test-smtp'
           } : undefined,
-          otp: process.env.NODE_ENV === 'development' ? otp : undefined
+          otp: isOtpDevTestMode() ? otp : undefined
         }, 
         { status: 503 }
       );
@@ -129,7 +141,11 @@ export async function POST(request: NextRequest) {
         { maxRetries: 2, initialDelayMs: 1000, maxDelayMs: 5000 }
       );
 
-      return NextResponse.json({ message: 'OTP sent successfully' });
+      return NextResponse.json({
+        message: 'OTP sent successfully',
+        otp: isOtpDevTestMode() ? otp : undefined,
+        testMode: isOtpDevTestMode(),
+      });
     } catch (emailError: any) {
       console.error('Email send error:', emailError);
       
@@ -142,7 +158,7 @@ export async function POST(request: NextRequest) {
           { 
             error: 'Too many OTP requests. Please wait a few minutes before trying again.',
             code: 'RATE_LIMIT',
-            otp: process.env.NODE_ENV === 'development' ? otp : undefined
+            otp: isOtpDevTestMode() ? otp : undefined
           }, 
           { status: 429 }
         );
@@ -158,7 +174,7 @@ export async function POST(request: NextRequest) {
               solution: 'Verify SMTP credentials. For Gmail, use App Password: https://myaccount.google.com/apppasswords',
               testEndpoint: '/api/admin/test-smtp'
             } : undefined,
-            otp: process.env.NODE_ENV === 'development' ? otp : undefined
+            otp: isOtpDevTestMode() ? otp : undefined
           }, 
           { status: 503 }
         );
@@ -173,7 +189,7 @@ export async function POST(request: NextRequest) {
             originalError: emailError.message,
             errorCode: emailError.code
           } : undefined,
-          otp: process.env.NODE_ENV === 'development' ? otp : undefined
+          otp: isOtpDevTestMode() ? otp : undefined
         }, 
         { status: 503 }
       );

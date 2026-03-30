@@ -13,7 +13,7 @@ export default function Footer() {
               AiBlog
             </Link>
             <p className="text-on-surface-variant max-w-sm mb-8 leading-relaxed text-sm">
-              The world's first AI-integrated editorial ecosystem designed for the next generation of professional creators and thought leaders.
+              The world&apos;s first AI-integrated editorial ecosystem designed for the next generation of professional creators and thought leaders.
             </p>
             <div className="flex gap-4">
               {/* Social Icons */}
@@ -49,6 +49,7 @@ export default function Footer() {
             <ul className="space-y-4 text-sm text-on-surface-variant">
               <li><Link href="/contact" className="hover:text-primary transition-colors">Help Center</Link></li>
               <li><Link href="/community" className="hover:text-primary transition-colors">Community</Link></li>
+              <li><Link href="/forum" className="hover:text-primary transition-colors">Forum</Link></li>
             </ul>
           </div>
 

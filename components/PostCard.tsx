@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 
 interface PostCardProps {
   title: string;
@@ -36,13 +37,15 @@ export default function PostCard({
   return (
     <article className="group bg-surface-container-low rounded-3xl overflow-hidden hover:scale-[1.01] transition-all duration-500">
       {/* Image Container */}
-      <div className="aspect-[21/9] w-full relative overflow-hidden">
-        <img
+      <div className="aspect-21/9 w-full relative overflow-hidden">
+        <Image
           src={image}
           alt={title}
+          fill
+          sizes="(max-width: 768px) 100vw, 50vw"
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-surface-container-low via-transparent to-transparent"></div>
+        <div className="absolute inset-0 bg-linear-to-t from-surface-container-low via-transparent to-transparent"></div>
         <div className="absolute top-6 left-6 flex gap-2">
           <span className={`${categoryColorMap[categoryColor]} px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest`}>
             {category}
@@ -54,9 +57,11 @@ export default function PostCard({
       <div className="p-8 -mt-12 relative z-10">
         {/* Author */}
         <div className="flex items-center gap-4 mb-4">
-          <img
+          <Image
             src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${author}`}
             alt={author}
+            width={40}
+            height={40}
             className="w-10 h-10 rounded-full border-2 border-primary-container"
           />
           <div>

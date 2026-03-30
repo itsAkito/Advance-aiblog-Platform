@@ -38,12 +38,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<string>("user");
   const [showConsent, setShowConsent] = useState(false);
   const router = useRouter();
+  const CONSENT_KEY = "aiblog_user_consent_accepted";
 
   // Don't show consent modal for admin routes
   const isAdminRoute = pathname?.includes("/admin");
+  const isAuthRoute = pathname?.startsWith("/auth");
 
   const syncUserToSupabase = useCallback(async () => {
-    if (!clerkUser) return;
+    if (!clerkUser) {
+      setLoading(false);
+      return;
+    }
 
     const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "admin@gmail.com";
     const email = clerkUser.primaryEmailAddress?.emailAddress || "";
@@ -75,35 +80,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (data.profile) {
           setProfile(data.profile);
           setRole(data.profile.role || "user");
-          // Don't show consent for admins
-          if (!isAdminRoute && data.profile.role !== "admin") {
-            setShowConsent(true);
-          } else {
-            setLoading(false);
-          }
+          setLoading(false);
           return;
         }
       }
 
       setProfile(fallbackProfile);
       setRole(userRole);
-      // Don't show consent for admins
-      if (!isAdminRoute && userRole !== "admin") {
-        setShowConsent(true);
-      } else {
-        setLoading(false);
-      }
+      setLoading(false);
     } catch (error) {
-      console.error("Clerk sync error:", error instanceof Error ? error.message : String(error));
+      // Network hiccups should not surface as hard console errors in normal auth flow.
       setProfile(fallbackProfile);
       setRole(userRole);
-      if (!isAdminRoute && userRole !== "admin") {
-        setShowConsent(true);
-      } else {
-        setLoading(false);
-      }
+      setLoading(false);
     }
-  }, [isAdminRoute]);
+  }, [clerkUser, isAdminRoute]);
 
   // Check for OTP-based login from database session
   const loadOtpUser = useCallback(async () => {
@@ -128,49 +119,101 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(profile);
         setRole(profile.role);
         
-        // Show consent modal ONLY for regular users after OTP verification
-        if (!isAdminRoute && profile.role === "user") {
-          setShowConsent(true);
-        } else {
-          setLoading(false);
-        }
+        setLoading(false);
         return true;
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error("Error loading OTP session:", errorMsg);
     }
+    
+    // Fallback for password-based admin session (httpOnly cookie).
+    try {
+      const adminProbe = await fetch("/api/admin/activity?limit=1", {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (adminProbe.ok) {
+        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "admin@gmail.com";
+        const adminProfile: Profile = {
+          id: "admin-session",
+          email: adminEmail,
+          name: "Administrator",
+          role: "admin",
+        };
+        setProfile(adminProfile);
+        setRole("admin");
+        setLoading(false);
+        return true;
+      }
+    } catch {
+      // Ignore and continue to unauthenticated state.
+    }
+
+    // If no OTP session found, just finish loading
+    setLoading(false);
     return false;
   }, [isAdminRoute]);
 
+  // Lifecycle: Load auth state once
   useEffect(() => {
-    if (isLoaded) {
-      if (isSignedIn && clerkUser) {
-        syncUserToSupabase().finally(() => setLoading(false));
-      } else {
-        loadOtpUser().finally(() => setLoading(false));
-      }
-    }
-  }, [isLoaded, isSignedIn, clerkUser, syncUserToSupabase, loadOtpUser]);
+    if (!isLoaded) return;
 
-  const isAuthenticated = !!isSignedIn || !!profile;
+    if (isSignedIn && clerkUser) {
+      syncUserToSupabase();
+      return;
+    }
+
+    // Avoid noisy 401 session probes on the auth entry route when user is logged out.
+    if (isAuthRoute) {
+      setLoading(false);
+      return;
+    }
+
+    loadOtpUser().catch(() => {
+      // If OTP load fails, just finish loading
+      setLoading(false);
+    });
+  }, [isLoaded, isSignedIn, clerkUser, syncUserToSupabase, loadOtpUser, isAuthRoute]);
 
   useEffect(() => {
     if (loading) return;
-
-    if (pathname?.startsWith("/auth") && role === "admin" && isAuthenticated) {
-      router.replace("/admin");
+    if (isAdminRoute) {
+      setShowConsent(false);
+      return;
     }
-  }, [loading, pathname, role, isAuthenticated, router]);
+
+    const activeUserRole = role;
+    if (activeUserRole !== "user") {
+      setShowConsent(false);
+      return;
+    }
+
+    const onDashboardRoute = pathname?.startsWith("/dashboard");
+    if (!onDashboardRoute) {
+      setShowConsent(false);
+      return;
+    }
+
+    const hasConsent = typeof window !== "undefined" && localStorage.getItem(CONSENT_KEY) === "true";
+    setShowConsent(!hasConsent);
+  }, [loading, role, pathname, isAdminRoute]);
+
+  const isAuthenticated = !!isSignedIn || !!profile;
 
   const handleConsentAccept = async () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(CONSENT_KEY, "true");
+    }
     setShowConsent(false);
     setLoading(false);
-    const dashboardUrl = role === "admin" ? "/admin" : "/dashboard";
-    router.replace(dashboardUrl);
   };
 
   const handleConsentDeny = async () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(CONSENT_KEY);
+    }
     setShowConsent(false);
     if (isSignedIn) {
       await clerkSignOut();
@@ -182,19 +225,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    try {
-      await fetch("/api/auth/otp/session", {
-        method: "DELETE",
-        credentials: "include",
-      });
-    } catch {}
-
-    if (isSignedIn) {
-      await clerkSignOut();
-    }
-
+    // Clear local state first so UI updates immediately (no spinner)
     setProfile(null);
     setRole("user");
+
+    // Fire-and-forget: revoke OTP session and Clerk session in the background
+    void fetch("/api/auth/otp/session", { method: "DELETE", credentials: "include" }).catch(() => {});
+    if (isSignedIn) {
+      clerkSignOut().catch(() => {});
+    }
+
     router.push("/");
   };
 
@@ -222,7 +262,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     >
       <ConsentModal
         isOpen={showConsent}
-        userRole={role as "user" | "admin"}
         onAccept={handleConsentAccept}
         onDeny={handleConsentDeny}
       />

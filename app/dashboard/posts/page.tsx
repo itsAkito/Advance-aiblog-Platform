@@ -6,6 +6,7 @@ import Navbar from "@/components/NavBar";
 import SideNavBar from "@/components/SideNavBar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/context/AuthContext";
+import { subscribeLikeUpdates } from "@/lib/like-sync";
 
 interface Post {
   id: string;
@@ -45,6 +46,18 @@ export default function MyPostsPage() {
     fetchPosts();
   }, [fetchPosts]);
 
+  useEffect(() => {
+    const unsubscribe = subscribeLikeUpdates((payload) => {
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === payload.postId ? { ...post, likes_count: payload.likesCount } : post
+        )
+      );
+    });
+
+    return unsubscribe;
+  }, []);
+
   const handleDelete = async (postId: string) => {
     if (!confirm("Delete this post?")) return;
     try {
@@ -83,7 +96,7 @@ export default function MyPostsPage() {
                   Manage your published articles, drafts, and archived content.
                 </p>
               </div>
-              <Link href="/editor" className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed rounded-lg font-bold text-sm hover:scale-[1.02] transition-all shadow-lg shadow-primary/20">
+              <Link href="/editor" className="flex items-center gap-2 px-5 py-3 bg-linear-to-r from-primary to-primary-container text-on-primary-fixed rounded-lg font-bold text-sm hover:scale-[1.02] transition-all shadow-lg shadow-primary/20">
                 <span className="material-symbols-outlined text-sm">add</span>
                 New Post
               </Link>
@@ -109,7 +122,7 @@ export default function MyPostsPage() {
 
             {/* Current Draft Highlight */}
             {activeTab === "drafts" && (
-              <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-secondary/10 to-tertiary/5 border border-secondary/20">
+              <div className="mb-8 p-6 rounded-2xl bg-linear-to-r from-secondary/10 to-tertiary/5 border border-secondary/20">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="material-symbols-outlined text-secondary text-sm">edit_note</span>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-secondary">Current Draft</span>

@@ -26,12 +26,12 @@ export default function CookieBanner() {
           initial={{ y: 200, x: "-50%" }}
           animate={{ y: 0, x: "-50%" }}
           exit={{ y: 200, x: "-50%" }}
-          className="fixed bottom-6 left-1/2 z-[100] w-[90%] max-w-2xl"
+          className="fixed bottom-6 left-1/2 z-100 w-[90%] max-w-2xl"
         >
           <div className="bg-surface-container-highest/90 backdrop-blur-2xl p-6 rounded-3xl border border-white/10 shadow-2xl flex flex-col sm:flex-row items-center gap-6">
             <div className="flex-1">
               <p className="text-sm text-on-surface leading-relaxed">
-                We use cookies to enhance your experience and analyze our traffic. By clicking "Accept All", you consent to our use of cookies. <a href="#" className="text-primary underline font-medium">Read Policy</a>
+                We use cookies to enhance your experience and analyze our traffic. By clicking &quot;Accept All&quot;, you consent to our use of cookies. <a href="#" className="text-primary underline font-medium">Read Policy</a>
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">

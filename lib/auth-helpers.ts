@@ -12,24 +12,24 @@ export async function getAuthUserId(request?: NextRequest): Promise<string | nul
     if (userId) return userId;
   } catch {}
 
-  // Fall back to OTP session from database
+  // Fall back to OTP session — query DB directly (avoids unreliable internal HTTP)
   if (request) {
     try {
-      const otpSessionToken = request.cookies.get("otp_session_token")?.value;
-      const otpSession = request.cookies.get("otp_session")?.value;
-      
-      if (otpSessionToken || otpSession) {
-        // Get user from OTP session (via the session endpoint)
-        // This assumes there's a way to retrieve the authenticated user
-        const response = await fetch(new URL("/api/auth/otp/session", request.url).toString(), {
-          headers: {
-            Cookie: request.headers.get("cookie") || "",
-          },
-        }).catch(() => null);
-        
-        if (response?.ok) {
-          const data = await response.json();
-          return data.user?.id || null;
+      const sessionToken =
+        request.cookies.get('otp_session_token')?.value ||
+        request.cookies.get('otp_session')?.value;
+
+      if (sessionToken) {
+        const supabase = await createClient();
+        const { data: session } = await supabase
+          .from('otp_sessions')
+          .select('user_id, expires_at, is_active')
+          .eq('session_token', sessionToken)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (session && new Date(session.expires_at) > new Date()) {
+          return session.user_id as string;
         }
       }
     } catch {}

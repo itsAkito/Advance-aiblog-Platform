@@ -531,7 +531,7 @@ export default function CareersPage() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-background pt-24 pb-16 px-4 sm:px-8">
+      <main className="min-h-screen pt-24 pb-16 px-4 sm:px-8" style={{background: "radial-gradient(ellipse 80% 50% at 20% 10%, rgba(249,115,22,0.08) 0%, transparent 55%), radial-gradient(ellipse 60% 40% at 80% 80%, rgba(168,85,247,0.07) 0%, transparent 55%), hsl(var(--background))"}}>
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-12">
@@ -539,7 +539,7 @@ export default function CareersPage() {
               Discover Opportunities
             </span>
             <h1 className="font-headline text-5xl md:text-6xl font-extrabold tracking-tighter text-on-surface leading-[0.95] mb-4">
-              Find Your Next <span className="text-primary italic">Career</span>
+              Find Your Next{" "}<span style={{background:"linear-gradient(135deg,#f97316,#e879f9,#818cf8)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}} className="italic">Career</span>
             </h1>
             <p className="text-on-surface-variant max-w-2xl leading-relaxed">
               Explore thousands of job opportunities across companies. Filter by location, job type, and experience level to find the perfect fit.
@@ -699,12 +699,13 @@ export default function CareersPage() {
                 {filteredJobs.map((job) => (
                   <Card
                     key={job.id}
-                    className="bg-surface-container-low/50 backdrop-blur border-outline-variant/10 hover:border-primary/30 transition-all cursor-pointer group"
+                    className="bg-surface-container-low/50 backdrop-blur border-outline-variant/10 hover:border-orange-400/40 hover:shadow-xl hover:shadow-orange-500/10 hover:-translate-y-1 transition-all duration-300 cursor-pointer group"
                     onClick={() => router.push(`/careers/${job.id}`)}
                   >
                     <CardContent className="p-6 h-full flex flex-col">
                       {/* Header */}
                       <div className="mb-4 pb-4 border-b border-outline-variant/10">
+                        <div className="h-0.5 w-8 bg-linear-to-r from-orange-400 to-violet-400 rounded-full mb-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                         <h3 className="font-bold font-headline text-lg group-hover:text-primary transition-colors mb-1">
                           {job.title}
                         </h3>

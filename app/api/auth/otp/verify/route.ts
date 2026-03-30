@@ -17,18 +17,20 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
 
-    // Find the OTP record
+    // Find the OTP record — use maybeSingle() to avoid crashing on 0 or multiple rows
     const { data: otpRecord, error: fetchError } = await supabase
       .from('otp_codes')
       .select('*')
       .eq('email', email)
-      .eq('code', code)
+      .eq('code', code.trim())
       .eq('verified', false)
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (fetchError || !otpRecord) {
-      // Log failed attempt
-      await supabase.from('otp_login_audit').insert({
+      // Log failed attempt (non-fatal)
+      void supabase.from('otp_login_audit').insert({
         email,
         status: 'wrong_code',
         device_info: request.headers.get('user-agent'),
@@ -39,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     // Check expiry
     if (new Date(otpRecord.expires_at) < new Date()) {
-      await supabase.from('otp_login_audit').insert({
+      void supabase.from('otp_login_audit').insert({
         email,
         status: 'code_expired',
         device_info: request.headers.get('user-agent'),
@@ -56,25 +58,88 @@ export async function POST(request: NextRequest) {
       .eq('code', code);
 
     // Upsert user profile so they exist in the database
-    const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@gmail.com';
-    const role = email.toLowerCase() === adminEmail.toLowerCase() ? 'admin' : 'user';
-    const profileId = `otp_${email.replace(/[^a-z0-9]/gi, '_')}`;
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@gmail.com';
+    if (email.toLowerCase() === adminEmail.toLowerCase()) {
+      return NextResponse.json(
+        { error: 'Admin email must use admin email/password login.' },
+        { status: 403 }
+      );
+    }
+
+    const role = 'user';
+    const fallbackProfileId = `otp_${email.replace(/[^a-z0-9]/gi, '_')}`;
     const userName = email.split('@')[0];
 
-    const { data: profile } = await supabase
+    // Reuse existing profile by email when it already exists (e.g. Clerk-created rows).
+    // This prevents unique email constraint violations when a profile for this email
+    // already exists under a different ID.
+    const existingProfileLookup = await supabase
       .from('profiles')
-      .upsert(
-        [{
-          id: profileId,
-          email,
-          name: userName,
-          role,
-          updated_at: new Date().toISOString(),
-        }],
-        { onConflict: 'id' }
-      )
-      .select()
-      .single();
+      .select('id, email, name, role, profile_image_url')
+      .eq('email', email)
+      .maybeSingle();
+
+    const targetProfileId = existingProfileLookup.data?.id || fallbackProfileId;
+
+    let profile = existingProfileLookup.data;
+
+    // Only upsert a new profile row when no existing profile was found for this email.
+    if (!profile) {
+      let profileResult = await supabase
+        .from('profiles')
+        .upsert(
+          [{
+            id: targetProfileId,
+            email,
+            name: userName,
+            role,
+            updated_at: new Date().toISOString(),
+          }],
+          { onConflict: 'id' }
+        )
+        .select()
+        .single();
+
+      if (profileResult.error) {
+        // Fallback: try without updated_at for schemas that lack the column.
+        profileResult = await supabase
+          .from('profiles')
+          .upsert(
+            [{ id: targetProfileId, email, name: userName, role }],
+            { onConflict: 'id' }
+          )
+          .select()
+          .single();
+      }
+
+      if (profileResult.error) {
+        // Last resort: try a plain insert, ignoring conflict.
+        await supabase.from('profiles').insert({ id: targetProfileId, email, name: userName, role }).select().maybeSingle();
+        // Re-fetch after insert attempt
+        const refetch = await supabase.from('profiles').select('id, email, name, role, profile_image_url').eq('id', targetProfileId).maybeSingle();
+        if (refetch.data) {
+          profile = refetch.data;
+        }
+      } else {
+        profile = profileResult.data;
+      }
+
+      // If still no profile after all attempts, re-fetch by email one more time.
+      if (!profile) {
+        const retryLookup = await supabase.from('profiles').select('id, email, name, role, profile_image_url').eq('email', email).maybeSingle();
+        if (retryLookup.data) {
+          profile = retryLookup.data;
+        }
+      }
+
+      if (!profile) {
+        console.error('Profile creation failed for email:', email);
+        return NextResponse.json(
+          { error: 'Failed to create user profile. Please try again.' },
+          { status: 500 }
+        );
+      }
+    }
 
     // Generate session token
     const sessionToken = crypto.randomBytes(32).toString('hex');
@@ -84,7 +149,7 @@ export async function POST(request: NextRequest) {
     const { data: _session, error: sessionError } = await supabase
       .from('otp_sessions')
       .insert({
-        user_id: profileId,
+        user_id: targetProfileId,
         email,
         session_token: sessionToken,
         device_info: request.headers.get('user-agent'),
@@ -103,10 +168,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Log successful login
-    await supabase.from('otp_login_audit').insert({
+    // Log successful login (non-fatal — table may not exist in all environments)
+    void supabase.from('otp_login_audit').insert({
       email,
-      user_id: profileId,
+      user_id: targetProfileId,
       status: 'success',
       device_info: request.headers.get('user-agent'),
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
@@ -114,12 +179,18 @@ export async function POST(request: NextRequest) {
 
     // Prepare user object to send to client
     const userData = {
-      id: profile?.id || profileId,
+      id: profile?.id || targetProfileId,
       email,
       name: profile?.name || userName,
       avatar_url: profile?.profile_image_url || null,
       role: profile?.role || role,
     };
+
+    const { data: credentialRow } = await supabase
+      .from('user_password_credentials')
+      .select('user_id')
+      .eq('user_id', userData.id)
+      .maybeSingle();
 
     // Set both session cookie AND httpOnly cookie for enhanced security
     const response = NextResponse.json(
@@ -127,6 +198,7 @@ export async function POST(request: NextRequest) {
         message: 'OTP verified successfully',
         user: userData,
         session_token: sessionToken, // Return token for client-side use
+        passwordConfigured: !!credentialRow,
       },
       { status: 200 }
     );

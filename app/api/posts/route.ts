@@ -4,6 +4,87 @@ import { auth } from '@clerk/nextjs/server';
 import { getAuthUserId } from '@/lib/auth-helpers';
 import { logActivity } from '@/lib/activity-log';
 
+type SearchablePost = {
+  title?: string | null;
+  excerpt?: string | null;
+  content?: string | null;
+  topic?: string | null;
+  category?: string | null;
+  created_at?: string;
+};
+
+function isSmokeVerificationPost(post: SearchablePost): boolean {
+  const title = (post.title || '').toLowerCase();
+  const excerpt = (post.excerpt || '').toLowerCase();
+  const content = (post.content || '').toLowerCase();
+  const topic = (post.topic || '').toLowerCase();
+  const category = (post.category || '').toLowerCase();
+
+  const categoryHit = category.includes('smoke') || category.includes('verification');
+  const contentHit =
+    title.includes('smoke category post') ||
+    title.includes('smoke verification') ||
+    excerpt.includes('smoke verification') ||
+    topic.includes('smoke verification') ||
+    content.includes('smoke verification') ||
+    excerpt.includes('smoke category') ||
+    content.includes('smoke category') ||
+    title.includes('placeholder') ||
+    title.includes('dummy') ||
+    title.includes('test post') ||
+    title.includes('verification post') ||
+    title.includes('sample post') ||
+    title.includes('seeded post') ||
+    title.includes('smoke ');
+
+  return categoryHit || contentHit;
+}
+
+function isMissingCategoryColumn(error: unknown): boolean {
+  const code = typeof error === 'object' && error !== null ? (error as { code?: string }).code : undefined;
+  const message = typeof error === 'object' && error !== null ? (error as { message?: string }).message : undefined;
+  if (code !== 'PGRST204' && code !== '42703') return false;
+  return typeof message === 'string' && message.toLowerCase().includes('category');
+}
+
+function computeSearchRelevance(post: SearchablePost, query: string): number {
+  const q = query.trim().toLowerCase();
+  if (!q) return 0;
+
+  const title = (post.title || '').toLowerCase();
+  const topic = (post.topic || '').toLowerCase();
+  const category = (post.category || '').toLowerCase();
+  const excerpt = (post.excerpt || '').toLowerCase();
+  const content = (post.content || '').toLowerCase();
+
+  let score = 0;
+
+  if (title === q) score += 160;
+  if (topic === q) score += 180;
+  if (category === q) score += 220;
+
+  if (title.startsWith(q)) score += 100;
+  if (topic.startsWith(q)) score += 120;
+  if (category.startsWith(q)) score += 140;
+
+  if (title.includes(q)) score += 70;
+  if (topic.includes(q)) score += 90;
+  if (category.includes(q)) score += 110;
+  if (excerpt.includes(q)) score += 40;
+  if (content.includes(q)) score += 20;
+
+  const terms = q.split(/\s+/).filter(Boolean);
+  for (const term of terms) {
+    if (term.length < 2) continue;
+    if (title.includes(term)) score += 20;
+    if (topic.includes(term)) score += 30;
+    if (category.includes(term)) score += 35;
+    if (excerpt.includes(term)) score += 10;
+  }
+
+  return score;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -13,6 +94,7 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
     const search = searchParams.get('search');
     const topic = searchParams.get('topic');
+    const category = searchParams.get('category');
     const status = searchParams.get('status');
 
     // Validate Supabase is configured
@@ -38,11 +120,15 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      query = query.or(`title.ilike.%${search}%,excerpt.ilike.%${search}%,content.ilike.%${search}%`);
+      query = query.or(`title.ilike.%${search}%,excerpt.ilike.%${search}%,content.ilike.%${search}%,topic.ilike.%${search}%,category.ilike.%${search}%`);
     }
 
     if (topic) {
       query = query.eq('topic', topic);
+    }
+
+    if (category) {
+      query = query.eq('category', category);
     }
 
     if (status) {
@@ -50,26 +136,62 @@ export async function GET(request: NextRequest) {
     }
 
     const offset = (page - 1) * limit;
-    const { data, count, error } = await query
+    let categoryFilterUnavailable = false;
+
+    let { data, count, error } = await query
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (error) {
-      console.error('Posts query error:', error.message, error.code);
-      
-      // If it's a schema error, return empty results instead of 400
-      if (error.message?.includes('does not exist') || error.message?.includes('relation')) {
-        return NextResponse.json({
-          posts: [],
-          pagination: { page, limit, total: 0, totalPages: 0 },
-          warning: 'Database schema not initialized. Please run migrations.'
-        });
+    if (error && isMissingCategoryColumn(error)) {
+      categoryFilterUnavailable = Boolean(category);
+
+      let fallbackQuery = supabase
+        .from('posts')
+        .select('*, profiles(id, name, avatar_url)', { count: 'exact' });
+
+      if (published) {
+        fallbackQuery = fallbackQuery.eq('status', 'published');
       }
 
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      if (userId) {
+        fallbackQuery = fallbackQuery.eq('author_id', userId);
+      }
+
+      if (search) {
+        fallbackQuery = fallbackQuery.or(`title.ilike.%${search}%,excerpt.ilike.%${search}%,content.ilike.%${search}%,topic.ilike.%${search}%`);
+      }
+
+      if (topic) {
+        fallbackQuery = fallbackQuery.eq('topic', topic);
+      }
+
+      if (status) {
+        fallbackQuery = fallbackQuery.eq('status', status);
+      }
+
+      const fallbackResult = await fallbackQuery
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      data = fallbackResult.data as any;
+      count = fallbackResult.count ?? 0;
+      error = fallbackResult.error as any;
     }
 
-    const postIds = (data || []).map((post: any) => post.id).filter(Boolean);
+    if (error) {
+      console.error('Posts query error:', error.message, error.code);
+
+      // Return safe fallback instead of breaking homepage/public feeds.
+      return NextResponse.json({
+        posts: [],
+        pagination: { page, limit, total: 0, totalPages: 0 },
+        warning: error.message || 'Posts unavailable right now',
+      });
+    }
+
+    const filteredData = (data || []).filter((post: any) => !isSmokeVerificationPost(post));
+
+    const postIds = filteredData.map((post: any) => post.id).filter(Boolean);
     const likesByPostId = new Map<string, number>();
     const commentsByPostId = new Map<string, number>();
     const likedByCurrentUser = new Set<string>();
@@ -77,7 +199,7 @@ export async function GET(request: NextRequest) {
     if (postIds.length > 0) {
       const authUserId = await getAuthUserId(request);
 
-      const [{ data: likeRows }, { data: commentRows }] = await Promise.all([
+      const [{ data: likeRows, error: likesError }, { data: commentRows, error: commentsError }] = await Promise.all([
         supabase
           .from('post_likes')
           .select('post_id')
@@ -87,6 +209,13 @@ export async function GET(request: NextRequest) {
           .select('post_id')
           .in('post_id', postIds),
       ]);
+
+      if (likesError) {
+        console.warn('post_likes query warning:', likesError.message);
+      }
+      if (commentsError) {
+        console.warn('comments query warning:', commentsError.message);
+      }
 
       for (const row of likeRows || []) {
         if (!row.post_id) continue;
@@ -111,18 +240,34 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const enrichedPosts = (data || []).map((post: any) => ({
+    const enrichedPosts = filteredData.map((post: any) => ({
       ...post,
       likes_count: likesByPostId.get(post.id) ?? post.likes_count ?? 0,
       comments_count: commentsByPostId.get(post.id) ?? post.comments_count ?? 0,
       liked_by_current_user: likedByCurrentUser.has(post.id),
     }));
 
+    const orderedPosts = search
+      ? [...enrichedPosts].sort((a: any, b: any) => {
+          const scoreA = computeSearchRelevance(a, search);
+          const scoreB = computeSearchRelevance(b, search);
+          if (scoreA !== scoreB) return scoreB - scoreA;
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        })
+      : enrichedPosts;
+
+    const total = typeof count === 'number' ? Math.max(0, count) : orderedPosts.length;
+
     return NextResponse.json({
-      posts: enrichedPosts,
+      posts: orderedPosts,
+      warning: categoryFilterUnavailable
+        ? 'Category filtering is unavailable on this database schema yet.'
+        : undefined,
       pagination: {
-        page, limit, total: count,
-        totalPages: count ? Math.ceil(count / limit) : 0,
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
       },
     });
   } catch (error) {
@@ -135,7 +280,7 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
     const body = await request.json();
-    const { title, content, excerpt, image_url, cover_image_url, published, ai_generated, aiGenerated, topic, status, userId: bodyUserId } = body;
+    const { title, content, excerpt, image_url, cover_image_url, published, ai_generated, aiGenerated, topic, category, status, userId: bodyUserId } = body;
 
     // Get user ID from either Clerk auth or OTP session
     let userId = bodyUserId;
@@ -172,7 +317,7 @@ export async function POST(request: NextRequest) {
       .replace(/^-+|-+$/g, '')
       + '-' + Date.now().toString(36);
 
-    const { data, error } = await supabase
+    let createResult = await supabase
       .from('posts')
       .insert([{
         author_id: userId,
@@ -184,9 +329,31 @@ export async function POST(request: NextRequest) {
         status: published ? 'published' : (status || 'draft'),
         ai_generated: isAiGenerated,
         topic: topic || null,
+        category: category || null,
       }])
       .select()
       .single();
+
+    if (createResult.error && isMissingCategoryColumn(createResult.error)) {
+      createResult = await supabase
+        .from('posts')
+        .insert([{
+          author_id: userId,
+          title,
+          content,
+          excerpt: excerpt || content.substring(0, 160),
+          cover_image_url: cover_image_url || image_url || null,
+          slug,
+          status: published ? 'published' : (status || 'draft'),
+          ai_generated: isAiGenerated,
+          topic: topic || null,
+        }])
+        .select()
+        .single();
+    }
+
+    const data = createResult.data;
+    const error = createResult.error;
 
     if (error) {
       console.error('Create post error:', error);
@@ -201,10 +368,38 @@ export async function POST(request: NextRequest) {
       metadata: {
         title,
         topic: topic || null,
+        category: category || null,
         status: published ? 'published' : (status || 'draft'),
         aiGenerated: isAiGenerated,
       },
     });
+
+    try {
+      const { data: adminProfiles } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'admin');
+
+      if (adminProfiles && adminProfiles.length > 0) {
+        const notificationRows = adminProfiles
+          .filter((admin) => admin.id && admin.id !== userId)
+          .map((admin) => ({
+            user_id: admin.id,
+            type: 'system',
+            title: 'New blog post created',
+            message: `${title.substring(0, 80)}${title.length > 80 ? '...' : ''}`,
+            related_user_id: userId,
+            related_post_id: data.id,
+            is_read: false,
+          }));
+
+        if (notificationRows.length > 0) {
+          await supabase.from('notifications').insert(notificationRows);
+        }
+      }
+    } catch (notifyError) {
+      console.warn('Failed to create admin post notifications:', notifyError);
+    }
 
     return NextResponse.json({ message: 'Post created successfully', post: data }, { status: 201 });
   } catch (error) {

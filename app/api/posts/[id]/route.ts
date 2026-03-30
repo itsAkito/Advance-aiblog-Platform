@@ -4,6 +4,13 @@ import { auth } from '@clerk/nextjs/server';
 import { getAuthUserId } from '@/lib/auth-helpers';
 import { logActivity } from '@/lib/activity-log';
 
+function isMissingCategoryColumn(error: unknown): boolean {
+  const code = typeof error === 'object' && error !== null ? (error as { code?: string }).code : undefined;
+  const message = typeof error === 'object' && error !== null ? (error as { message?: string }).message : undefined;
+  if (code !== 'PGRST204' && code !== '42703') return false;
+  return typeof message === 'string' && message.toLowerCase().includes('category');
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -99,7 +106,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const supabase = await createClient();
-    const { title, content, excerpt, image_url, cover_image_url, published, status, topic } = body;
+    const { title, content, excerpt, image_url, cover_image_url, published, status, topic, category } = body;
 
     const { data: existingPost, error: existingPostError } = await supabase
       .from('posts')
@@ -141,13 +148,29 @@ export async function PUT(
     if (published !== undefined) updateData.status = published ? 'published' : 'draft';
     if (status !== undefined) updateData.status = status;
     if (topic !== undefined) updateData.topic = topic;
+    if (category !== undefined) updateData.category = category;
 
-    const { data, error } = await supabase
+    let updateResult = await supabase
       .from('posts')
       .update(updateData)
       .eq('id', id)
       .select()
       .single();
+
+    if (updateResult.error && isMissingCategoryColumn(updateResult.error)) {
+      const fallbackData = { ...updateData };
+      delete (fallbackData as Record<string, any>).category;
+
+      updateResult = await supabase
+        .from('posts')
+        .update(fallbackData)
+        .eq('id', id)
+        .select()
+        .single();
+    }
+
+    const data = updateResult.data;
+    const error = updateResult.error;
 
     if (error) {
       console.error('Update post error:', error);

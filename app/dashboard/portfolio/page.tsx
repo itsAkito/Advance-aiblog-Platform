@@ -7,6 +7,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { subscribeLikeUpdates } from "@/lib/like-sync";
 
 type PortfolioData = {
   profile: { id: string; name?: string; bio?: string; website?: string; avatar_url?: string } | null;
@@ -42,6 +43,39 @@ export default function PortfolioPage() {
     loadPortfolio();
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = subscribeLikeUpdates((payload) => {
+      setData((current) => {
+        if (!current) return current;
+
+        let delta = 0;
+        const nextTopPosts = current.topPosts.map((post) => {
+          if (post.id !== payload.postId) return post;
+
+          const prevLikes = post.likes_count || 0;
+          const nextLikes = payload.likesCount;
+          delta += nextLikes - prevLikes;
+
+          return {
+            ...post,
+            likes_count: nextLikes,
+          };
+        });
+
+        return {
+          ...current,
+          topPosts: nextTopPosts,
+          metrics: {
+            ...current.metrics,
+            totalLikes: Math.max(0, current.metrics.totalLikes + delta),
+          },
+        };
+      });
+    });
+
+    return unsubscribe;
+  }, []);
+
   return (
     <ProtectedRoute>
       <Navbar />
@@ -74,7 +108,7 @@ export default function PortfolioPage() {
               </Card>
             ) : (
               <div className="space-y-6">
-                <Card className="bg-white/[0.03] backdrop-blur-xl border-white/10 rounded-2xl">
+                <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl">
                   <CardContent className="p-6">
                     <h2 className="text-xl font-bold text-on-surface">{data.profile?.name || 'Your Portfolio'}</h2>
                     <p className="text-sm text-on-surface-variant mt-2">{data.profile?.bio || 'Add a profile bio to strengthen your public portfolio.'}</p>
@@ -89,7 +123,7 @@ export default function PortfolioPage() {
                 </Card>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <Card className="lg:col-span-2 bg-white/[0.03] backdrop-blur-xl border-white/10 rounded-2xl">
+                  <Card className="lg:col-span-2 bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl">
                     <CardHeader>
                       <h3 className="font-bold text-on-surface">Top Performing Posts</h3>
                     </CardHeader>
@@ -101,7 +135,7 @@ export default function PortfolioPage() {
                           <a
                             key={post.id}
                             href={`/blog/${post.slug || post.id}`}
-                            className="block rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.06] p-3 transition-colors"
+                            className="block rounded-xl border border-white/10 bg-white/2 hover:bg-white/6 p-3 transition-colors"
                           >
                             <p className="font-semibold text-sm text-on-surface line-clamp-1">{post.title}</p>
                             <p className="text-xs text-on-surface-variant mt-1">{post.views || 0} views • {post.likes_count || 0} likes</p>
@@ -111,13 +145,13 @@ export default function PortfolioPage() {
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-white/[0.03] backdrop-blur-xl border-white/10 rounded-2xl">
+                  <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl">
                     <CardHeader>
                       <h3 className="font-bold text-on-surface">Milestones</h3>
                     </CardHeader>
                     <CardContent className="space-y-2.5">
                       {data.milestones.map((milestone) => (
-                        <div key={milestone.id} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
+                        <div key={milestone.id} className="flex items-center justify-between rounded-lg border border-white/10 bg-white/2 px-3 py-2">
                           <span className="text-xs text-on-surface">{milestone.label}</span>
                           <Badge className={milestone.achieved ? 'bg-emerald-500/15 text-emerald-300 border-emerald-400/20' : 'bg-white/5 text-on-surface-variant border-white/10'}>
                             {milestone.achieved ? 'Achieved' : 'In Progress'}
@@ -138,7 +172,7 @@ export default function PortfolioPage() {
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+    <div className="rounded-xl border border-white/10 bg-white/2 p-3">
       <p className="text-[11px] uppercase tracking-widest text-on-surface-variant">{label}</p>
       <p className="text-2xl font-extrabold text-on-surface mt-1">{value.toLocaleString()}</p>
     </div>

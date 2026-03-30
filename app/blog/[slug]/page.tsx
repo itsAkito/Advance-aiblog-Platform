@@ -7,6 +7,7 @@ import Navbar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/context/AuthContext";
 import { renderMarkdownBlocks } from "@/lib/markdown";
+import { emitLikeUpdate, subscribeLikeUpdates } from "@/lib/like-sync";
 
 interface Post {
   id: string;
@@ -109,21 +110,54 @@ export default function BlogPostPage() {
     fetchLikers();
   }, [fetchLikers]);
 
+  useEffect(() => {
+    const unsubscribe = subscribeLikeUpdates((payload) => {
+      if (!post || payload.postId !== post.id) return;
+      setLiked(payload.likedByCurrentUser);
+      setPost((current) => (current ? { ...current, likes_count: payload.likesCount } : current));
+    });
+
+    return unsubscribe;
+  }, [post]);
+
   const handleLike = async () => {
     if (!post) return;
     if (!user) {
       alert("Please sign in to like this post");
       return;
     }
+
+    const previousCount = post.likes_count || 0;
+    const optimisticLiked = !liked;
+    const optimisticCount = Math.max(0, previousCount + (optimisticLiked ? 1 : -1));
+
+    setLiked(optimisticLiked);
+    setPost({ ...post, likes_count: optimisticCount });
+    emitLikeUpdate({
+      postId: post.id,
+      likesCount: optimisticCount,
+      likedByCurrentUser: optimisticLiked,
+      source: "blog",
+    });
+
     try {
       if (liked) {
         // Unlike
         const res = await fetch(`/api/likes?post_id=${post.id}`, { method: "DELETE" });
         if (res.ok) {
           const data = await res.json();
+          const finalCount = data.count ?? Math.max(0, previousCount - 1);
           setLiked(false);
-          setPost({ ...post, likes_count: data.count ?? Math.max(0, post.likes_count - 1) });
+          setPost({ ...post, likes_count: finalCount });
+          emitLikeUpdate({
+            postId: post.id,
+            likesCount: finalCount,
+            likedByCurrentUser: false,
+            source: "blog",
+          });
           fetchLikers();
+        } else {
+          throw new Error("Failed to unlike post");
         }
       } else {
         // Like
@@ -134,13 +168,30 @@ export default function BlogPostPage() {
         });
         if (res.ok) {
           const data = await res.json();
+          const finalCount = data.count ?? previousCount + 1;
           setLiked(true);
-          setPost({ ...post, likes_count: data.count ?? post.likes_count + 1 });
+          setPost({ ...post, likes_count: finalCount });
+          emitLikeUpdate({
+            postId: post.id,
+            likesCount: finalCount,
+            likedByCurrentUser: true,
+            source: "blog",
+          });
           fetchLikers();
+        } else {
+          throw new Error("Failed to like post");
         }
       }
     } catch (err) {
       console.error("Error toggling like:", err);
+      setLiked(liked);
+      setPost({ ...post, likes_count: previousCount });
+      emitLikeUpdate({
+        postId: post.id,
+        likesCount: previousCount,
+        likedByCurrentUser: liked,
+        source: "blog",
+      });
       alert("Failed to toggle like. Please try again.");
     }
   };

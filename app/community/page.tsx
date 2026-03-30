@@ -18,6 +18,8 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/context/AuthContext";
 import { Heart, Share2 } from "lucide-react";
+import { getUserAccentColor } from "@/lib/utils";
+import { emitLikeUpdate, subscribeLikeUpdates } from "@/lib/like-sync";
 
 interface ApiPost {
   id: string;
@@ -31,6 +33,7 @@ interface ApiPost {
   created_at: string;
   ai_generated: boolean;
   topic?: string;
+  category?: string;
   author_id?: string;
   user_id?: string;
   cover_image_url?: string;
@@ -52,6 +55,20 @@ interface RecommendationPost {
   topic?: string;
   reason: string;
   score: number;
+}
+
+interface CommunityReview {
+  id: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+  postTitle?: string;
+  postSlug?: string;
+  author: {
+    id?: string;
+    name: string;
+    avatar_url?: string;
+  };
 }
 
 export default function CommunityPage() {
@@ -97,6 +114,14 @@ function CommunityContent() {
   const [commentSubmittingPostId, setCommentSubmittingPostId] = useState<string | null>(null);
   const [commentErrors, setCommentErrors] = useState<Record<string, string>>({});
   const [recommendations, setRecommendations] = useState<RecommendationPost[]>([]);
+  const [reviews, setReviews] = useState<CommunityReview[]>([]);
+  const [reviewsUnavailable, setReviewsUnavailable] = useState(false);
+  const [reviewPostSlug, setReviewPostSlug] = useState("");
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState("");
+  const [reviewSuccess, setReviewSuccess] = useState("");
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -161,6 +186,49 @@ function CommunityContent() {
     fetchRecommendations();
   }, []);
 
+  useEffect(() => {
+    const fetchReviews = async () => {
+      try {
+        const response = await fetch('/api/community/reviews?limit=6');
+        if (!response.ok) return;
+        const data = await response.json();
+        setReviews(data.reviews || []);
+        setReviewsUnavailable(Boolean(data.unavailable));
+      } catch (error) {
+        console.error('Failed to fetch reviews:', error);
+      }
+    };
+
+    fetchReviews();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeLikeUpdates((payload) => {
+      setApiPosts((current) =>
+        current.map((post) => {
+          if (post.id !== payload.postId) return post;
+          return {
+            ...post,
+            likes_count: payload.likesCount,
+            liked_by_current_user: payload.likedByCurrentUser,
+          };
+        })
+      );
+
+      setLikedPosts((currentLiked) => {
+        const next = new Set(currentLiked);
+        if (payload.likedByCurrentUser) {
+          next.add(payload.postId);
+        } else {
+          next.delete(payload.postId);
+        }
+        return next;
+      });
+    });
+
+    return unsubscribe;
+  }, []);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams();
@@ -169,6 +237,11 @@ function CommunityContent() {
   };
 
   const sortedPosts = [...apiPosts].sort((a, b) => {
+    const hasSearchQuery = Boolean(searchQuery.trim());
+    if (hasSearchQuery && sortBy === "latest") {
+      return 0;
+    }
+
     if (sortBy === "liked") return b.likes_count - a.likes_count;
     if (sortBy === "viewed") return b.views - a.views;
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -186,6 +259,8 @@ function CommunityContent() {
     }
 
     const wasLiked = likedPosts.has(postId);
+    const currentCount = apiPosts.find((post) => post.id === postId)?.likes_count || 0;
+    const optimisticCount = Math.max(0, currentCount + (wasLiked ? -1 : 1));
     const optimisticLiked = new Set(likedPosts);
 
     if (wasLiked) {
@@ -206,6 +281,13 @@ function CommunityContent() {
         };
       })
     );
+
+    emitLikeUpdate({
+      postId,
+      likesCount: optimisticCount,
+      likedByCurrentUser: !wasLiked,
+      source: "community",
+    });
 
     try {
       const response = await fetch(`/api/likes?post_id=${postId}`, {
@@ -240,6 +322,13 @@ function CommunityContent() {
           };
         })
       );
+
+      emitLikeUpdate({
+        postId,
+        likesCount: confirmedCount ?? optimisticCount,
+        likedByCurrentUser: confirmedLiked,
+        source: "community",
+      });
     } catch (error) {
       console.error("Failed to like post:", error);
       setLikedPosts((currentLiked) => {
@@ -263,6 +352,13 @@ function CommunityContent() {
           };
         })
       );
+
+      emitLikeUpdate({
+        postId,
+        likesCount: currentCount,
+        likedByCurrentUser: wasLiked,
+        source: "community",
+      });
     }
   };
 
@@ -381,6 +477,57 @@ function CommunityContent() {
     }
   };
 
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setReviewError('');
+    setReviewSuccess('');
+
+    if (!isAuthenticated) {
+      router.push('/auth');
+      return;
+    }
+
+    if (!reviewPostSlug.trim()) {
+      setReviewError('Select a post to review.');
+      return;
+    }
+
+    if (!reviewComment.trim()) {
+      setReviewError('Write a short review before submitting.');
+      return;
+    }
+
+    setReviewSubmitting(true);
+    try {
+      const response = await fetch('/api/community/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          postSlug: reviewPostSlug,
+          rating: reviewRating,
+          comment: reviewComment.trim(),
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to submit review');
+      }
+
+      setReviewSuccess('Review submitted. Thanks for sharing your feedback.');
+      setReviewComment('');
+      const refresh = await fetch('/api/community/reviews?limit=6');
+      if (refresh.ok) {
+        const data = await refresh.json();
+        setReviews(data.reviews || []);
+      }
+    } catch (error) {
+      setReviewError(error instanceof Error ? error.message : 'Failed to submit review');
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
   return (
     <>
       <Navbar />
@@ -420,7 +567,7 @@ function CommunityContent() {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search posts by title, topic, or keyword..."
+                    placeholder="Search posts by title, topic, category, or keyword..."
                     className="flex-1 border-0 bg-transparent text-sm py-3 text-on-surface placeholder:text-on-surface-variant/50 focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
                   <Button
@@ -465,6 +612,99 @@ function CommunityContent() {
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
+
+              <Card className="mt-6 bg-surface-container border-outline-variant/10 rounded-2xl">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <h2 className="font-headline text-lg font-bold text-on-surface">Community Reviews</h2>
+                      <p className="text-xs text-on-surface-variant mt-1">Share feedback on published posts and help creators improve.</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">{reviews.length} recent</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-4">
+                  {!reviewsUnavailable && (
+                    <form onSubmit={handleReviewSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <div className="md:col-span-2">
+                        <label className="text-[11px] text-on-surface-variant mb-1 block">Post</label>
+                        <select
+                          value={reviewPostSlug}
+                          onChange={(e) => setReviewPostSlug(e.target.value)}
+                          className="w-full h-10 rounded-md border border-outline-variant/20 bg-background px-3 text-sm text-on-surface"
+                        >
+                          <option value="">Select a post</option>
+                          {sortedPosts.filter((post) => Boolean(post.slug)).slice(0, 20).map((post) => (
+                            <option key={post.id} value={post.slug || ''}>
+                              {post.title}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[11px] text-on-surface-variant mb-1 block">Rating</label>
+                        <select
+                          value={reviewRating}
+                          onChange={(e) => setReviewRating(Number(e.target.value))}
+                          className="w-full h-10 rounded-md border border-outline-variant/20 bg-background px-3 text-sm text-on-surface"
+                        >
+                          {[5, 4, 3, 2, 1].map((value) => (
+                            <option key={value} value={value}>{value} star{value > 1 ? 's' : ''}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex items-end">
+                        <Button type="submit" disabled={reviewSubmitting} className="w-full">
+                          {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
+                        </Button>
+                      </div>
+                      <div className="md:col-span-4">
+                        <Textarea
+                          value={reviewComment}
+                          onChange={(e) => setReviewComment(e.target.value)}
+                          placeholder="What did you learn from this post?"
+                          className="min-h-20 text-sm"
+                        />
+                      </div>
+                    </form>
+                  )}
+
+                  {reviewError && <p className="text-xs text-red-400">{reviewError}</p>}
+                  {reviewSuccess && <p className="text-xs text-emerald-400">{reviewSuccess}</p>}
+                  {reviewsUnavailable && (
+                    <p className="text-xs text-on-surface-variant">Reviews are not configured yet for this environment.</p>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {reviews.slice(0, 4).map((review) => (
+                      <Card key={review.id} className="bg-background/40 border-outline-variant/20">
+                        <CardContent className="p-4 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={review.author?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${review.author?.name || 'reviewer'}`} />
+                                <AvatarFallback>{(review.author?.name || 'R').charAt(0).toUpperCase()}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="text-xs font-semibold text-on-surface">{review.author?.name || 'Community Member'}</p>
+                                <p className="text-[11px] text-on-surface-variant">{new Date(review.created_at).toLocaleDateString()}</p>
+                              </div>
+                            </div>
+                            <Badge variant="outline" className="text-[10px] border-amber-400/30 text-amber-300">{'★'.repeat(Math.max(1, Math.min(5, review.rating || 1)))}</Badge>
+                          </div>
+                          <p className="text-sm text-on-surface-variant line-clamp-3">{review.comment}</p>
+                          {review.postSlug && (
+                            <Link href={`/blog/${review.postSlug}`} className="text-[11px] text-primary hover:underline">Read post: {review.postTitle || 'View'}</Link>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                    {reviews.length === 0 && !reviewsUnavailable && (
+                      <p className="text-sm text-on-surface-variant">No reviews yet. Be the first to add one.</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Content Grid */}
@@ -494,14 +734,18 @@ function CommunityContent() {
                     </Card>
                   ))
                 ) : sortedPosts.length > 0 ? (
-                  sortedPosts.map((post) => (
+                  sortedPosts.map((post) => {
+                    const accentColor = getUserAccentColor(post.author_id || post.id);
+                    return (
                     <Link key={post.id} href={`/blog/${post.slug || post.id}`} className="block group">
-                      <Card className="bg-surface-container border-outline-variant/10 rounded-2xl overflow-hidden hover:border-primary/35 hover:shadow-2xl hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300">
+                      <Card className="bg-surface-container border-outline-variant/10 rounded-2xl overflow-hidden hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300" style={{"--card-accent": accentColor} as React.CSSProperties}>
+                        {/* Per-user accent top stripe */}
+                        <div className="h-0.5 w-0 group-hover:w-full transition-all duration-500 rounded-t-2xl" style={{background: `linear-gradient(90deg, ${accentColor}88, ${accentColor}22)`}} />
                         {/* Author Header */}
                         <CardHeader className="p-5 pb-3">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <Avatar className="h-9 w-9">
+                              <Avatar className="h-9 w-9" style={{boxShadow: `0 0 0 2px ${accentColor}44`}}>
                                 <AvatarImage
                                   src={post.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.profiles?.name || post.author_id}`}
                                   alt={post.profiles?.name || "Author"}
@@ -534,6 +778,11 @@ function CommunityContent() {
                               {post.topic && (
                                 <Badge variant="outline" className="text-[10px] border-outline-variant/30 text-on-surface-variant">
                                   {post.topic}
+                                </Badge>
+                              )}
+                              {post.category && (
+                                <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
+                                  {post.category}
                                 </Badge>
                               )}
                             </div>
@@ -648,7 +897,8 @@ function CommunityContent() {
                         )}
                       </Card>
                     </Link>
-                  ))
+                    );
+                  })
                 ) : (
                   <Card className="bg-surface-container border-outline-variant/10 rounded-2xl">
                     <CardContent className="flex flex-col items-center justify-center py-20">

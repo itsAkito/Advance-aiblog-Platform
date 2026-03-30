@@ -17,11 +17,6 @@ const isAdminRoute = createRouteMatcher([
   "/admin(.*)",
 ]);
 
-const isUserRoute = createRouteMatcher([
-  "/dashboard(.*)",
-  "/editor(.*)",
-]);
-
 export default clerkMiddleware(async (auth, req: NextRequest) => {
   // Skip redirects for API routes and static assets
   if (req.nextUrl.pathname.startsWith("/api") || req.nextUrl.pathname.startsWith("/_next")) {
@@ -36,9 +31,10 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   if (isProtectedRoute(req)) {
     const { userId } = await auth();
     const otpSessionToken = req.cookies.get("otp_session_token")?.value;
+    const adminSessionToken = req.cookies.get("admin_session_token")?.value;
+    let isAuthenticated = !!userId;
     
-    // Allow either Clerk-authenticated sessions or OTP sessions.
-    if (!userId && !otpSessionToken) {
+    if (!userId && !otpSessionToken && !adminSessionToken) {
       if (isAdminRoute(req)) {
         return NextResponse.redirect(new URL("/admin/login", req.url));
       }
@@ -48,9 +44,15 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
       return NextResponse.redirect(authUrl);
     }
 
-    // Try to get user profile for role checking
+    // Check user role for admin routes
+    let userRole = "user";
+    const hasAdminCookieForAdminRoute = !!adminSessionToken && isAdminRoute(req);
+
     try {
-      if (userId) {
+      if (hasAdminCookieForAdminRoute) {
+        userRole = "admin";
+        isAuthenticated = true;
+      } else if (userId) {
         const response = await fetch(new URL("/api/user/profile", req.url), {
           headers: {
             cookie: req.headers.get("cookie") || "",
@@ -60,21 +62,52 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
 
         if (response.ok) {
           const profile = await response.json();
-          const userRole = profile.role || "user";
+          userRole = profile.role || "user";
+          isAuthenticated = true;
+        }
+      } else if (otpSessionToken) {
+        // For OTP sessions, validate token and resolve role from server session
+        try {
+          const sessionRes = await fetch(new URL("/api/auth/otp/session", req.url), {
+            headers: {
+              cookie: req.headers.get("cookie") || `otp_session_token=${otpSessionToken}`,
+            },
+          });
+          if (sessionRes.ok) {
+            const sessionData = await sessionRes.json();
+            userRole = sessionData.user?.role || "user";
+            isAuthenticated = true;
+          } else {
+            isAuthenticated = false;
+          }
+        } catch {
+          isAuthenticated = false;
+          userRole = "user";
+        }
+      }
 
-          // Admin trying to access user-only route - redirect to admin
-          if (userRole === "admin" && isUserRoute(req)) {
-            return NextResponse.redirect(new URL("/admin", req.url));
-          }
-          // Regular user trying to access admin route - redirect to dashboard
-          if (userRole !== "admin" && isAdminRoute(req)) {
-            return NextResponse.redirect(new URL("/dashboard", req.url));
-          }
+      if (!isAuthenticated) {
+        if (isAdminRoute(req)) {
+          return NextResponse.redirect(new URL("/admin/login", req.url));
+        }
+        const authUrl = new URL("/auth", req.url);
+        authUrl.searchParams.set("next", req.nextUrl.pathname);
+        return NextResponse.redirect(authUrl);
+      }
+
+      // Role-based route protection
+      if (isAdminRoute(req)) {
+        if (userRole !== "admin") {
+          // Non-admin users hitting admin routes should be sent to admin login.
+          return NextResponse.redirect(new URL("/admin/login", req.url));
         }
       }
     } catch (error) {
-      // Continue normally if profile check fails
+      // Continue normally if profile check fails, but be strict with admin routes
       console.error("Profile check failed:", error);
+      if (isAdminRoute(req)) {
+        return NextResponse.redirect(new URL("/admin/login", req.url));
+      }
     }
   }
 

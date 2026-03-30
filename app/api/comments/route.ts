@@ -3,6 +3,14 @@ import { createClient } from '@/utils/supabase/server';
 import { getAuthUserId } from '@/lib/auth-helpers';
 import { logActivity } from '@/lib/activity-log';
 
+function isMissingColumnError(error: any, columnName: string): boolean {
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    message.includes(columnName.toLowerCase()) &&
+    (error?.code === 'PGRST204' || error?.code === '42703' || message.includes('does not exist'))
+  );
+}
+
 // GET comments for a specific post
 export async function GET(request: NextRequest) {
   try {
@@ -26,7 +34,29 @@ export async function GET(request: NextRequest) {
     }
     // If neither provided, just return paginated results (for dashboard/analytics)
 
-    const { data, error } = await query;
+    let { data, error } = await query;
+
+    // Backward compatibility for databases that still miss guest_email.
+    if (error && isMissingColumnError(error, 'guest_email')) {
+      let fallbackQuery = supabase
+        .from('comments')
+        .select('id, post_id, community_post_id, user_id, guest_name, content, created_at')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (postId) {
+        fallbackQuery = fallbackQuery.eq('post_id', postId);
+      } else if (communityPostId) {
+        fallbackQuery = fallbackQuery.eq('community_post_id', communityPostId);
+      }
+
+      const fallback = await fallbackQuery;
+      data = (fallback.data || []).map((comment: any) => ({
+        ...comment,
+        guest_email: null,
+      }));
+      error = fallback.error;
+    }
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
@@ -134,11 +164,31 @@ export async function POST(request: NextRequest) {
       commentData.community_post_id = communityPostId;
     }
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('comments')
       .insert([commentData])
       .select('id, post_id, community_post_id, user_id, guest_name, guest_email, content, created_at')
       .single();
+
+    // Backward compatibility for databases that still miss guest_email.
+    if (error && isMissingColumnError(error, 'guest_email')) {
+      const legacyCommentData = { ...commentData };
+      delete (legacyCommentData as any).guest_email;
+
+      const fallbackInsert = await supabase
+        .from('comments')
+        .insert([legacyCommentData])
+        .select('id, post_id, community_post_id, user_id, guest_name, content, created_at')
+        .single();
+
+      data = fallbackInsert.data
+        ? {
+            ...fallbackInsert.data,
+            guest_email: null,
+          }
+        : null;
+      error = fallbackInsert.error;
+    }
 
     if (error) {
       console.error('Comment insert error:', error);
