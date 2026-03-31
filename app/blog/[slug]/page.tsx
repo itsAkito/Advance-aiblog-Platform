@@ -9,6 +9,7 @@ import Footer from "@/components/Footer";
 import { useAuth } from "@/context/AuthContext";
 import { renderMarkdownBlocks } from "@/lib/markdown";
 import { emitLikeUpdate, subscribeLikeUpdates } from "@/lib/like-sync";
+import { getThemeById } from "@/lib/blog-themes";
 
 interface Post {
   id: string;
@@ -17,6 +18,7 @@ interface Post {
   excerpt?: string;
   cover_image_url?: string;
   topic?: string;
+  blog_theme?: string;
   views: number;
   likes_count: number;
   comments_count: number;
@@ -372,14 +374,16 @@ export default function BlogPostPage() {
     );
   }
 
+  const theme = getThemeById(post.blog_theme || "default");
+
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-background pt-20 pb-16">
+      <main className={`min-h-screen ${theme.bgClass} pt-20 pb-16 ${theme.fontClass}`}>
         {/* Cover Image */}
         {post.cover_image_url && (
           <div className="w-full h-100 relative overflow-hidden">
-            <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-background z-10"></div>
+            <div className={`absolute inset-0 bg-linear-to-b ${theme.coverOverlayClass} z-10`}></div>
             <Image src={post.cover_image_url} alt={post.title} fill sizes="100vw" className="object-cover" />
           </div>
         )}
@@ -388,14 +392,14 @@ export default function BlogPostPage() {
           {/* Header */}
           <header className={`${post.cover_image_url ? "-mt-24 relative z-20" : "mt-8"}`}>
             <div className="flex items-center gap-3 mb-4">
-              <Link href="/community" className="text-on-surface-variant hover:text-primary text-sm transition-colors flex items-center gap-1">
+              <Link href="/community" className={`${theme.linkClass} text-sm transition-colors flex items-center gap-1`}>
                 <span className="material-symbols-outlined text-sm">arrow_back</span>
                 All Posts
               </Link>
               {post.topic && (
                 <>
-                  <span className="text-on-surface-variant/30">/</span>
-                  <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">
+                  <span className="opacity-30">/</span>
+                  <span className={`px-3 py-1 rounded-full ${theme.accentClass} bg-current/10 text-[10px] font-bold uppercase tracking-wider`}>
                     {post.topic}
                   </span>
                 </>
@@ -406,30 +410,33 @@ export default function BlogPostPage() {
                   AI Generated
                 </span>
               )}
+              <span className={`px-3 py-1 rounded-full ${theme.accentClass} bg-current/10 text-[10px] font-bold uppercase tracking-wider`}>
+                {theme.name}
+              </span>
             </div>
 
-            <h1 className="text-4xl md:text-5xl font-extrabold font-headline tracking-tighter text-on-surface leading-tight mb-6">
+            <h1 className={`text-4xl md:text-5xl font-extrabold font-headline tracking-tighter ${theme.headingClass} leading-tight mb-6`}>
               {post.title}
             </h1>
 
             {/* Author & Meta */}
-            <div className="flex items-center justify-between flex-wrap gap-4 pb-8 border-b border-outline-variant/10">
+            <div className={`flex items-center justify-between flex-wrap gap-4 pb-8 border-b border-current/10`}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden">
                   {post.profiles?.avatar_url ? (
                     <Image src={post.profiles.avatar_url} alt="" width={40} height={40} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-on-surface-variant">
+                    <div className={`w-full h-full flex items-center justify-center ${theme.textClass}`}>
                       <span className="material-symbols-outlined">person</span>
                     </div>
                   )}
                 </div>
                 <div>
-                  <span className="font-semibold text-sm text-on-surface">{post.profiles?.name || "Unknown"}</span>
-                  <span className="block text-xs text-on-surface-variant">{formatDate(post.created_at)}</span>
+                  <span className={`font-semibold text-sm ${theme.headingClass}`}>{post.profiles?.name || "Unknown"}</span>
+                  <span className={`block text-xs ${theme.textClass}`}>{formatDate(post.created_at)}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-4 text-xs text-on-surface-variant">
+              <div className={`flex items-center gap-4 text-xs ${theme.textClass}`}>
                 <span className="flex items-center gap-1">
                   <span className="material-symbols-outlined text-sm">visibility</span>
                   {post.views} views
@@ -444,7 +451,7 @@ export default function BlogPostPage() {
                 </span>
               </div>
               {likers.length > 0 && (
-                <p className="mt-3 text-xs text-on-surface-variant">
+                <p className={`mt-3 text-xs ${theme.textClass}`}>
                   Liked by {likers.slice(0, 3).map((liker) => liker.name || "User").join(", ")}
                   {likers.length > 3 ? ` and ${likers.length - 3} others` : ""}
                 </p>
@@ -452,8 +459,8 @@ export default function BlogPostPage() {
             </div>
           </header>
 
-          {/* Content */}
-          <div className="mt-10 prose prose-invert prose-lg max-w-none text-on-surface-variant leading-relaxed">
+          {/* Themed Content */}
+          <div className={`mt-10 ${theme.proseClass} max-w-none ${theme.textClass} leading-relaxed`}>
             {renderMarkdownBlocks(post.content)}
           </div>
 

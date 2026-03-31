@@ -43,6 +43,15 @@ function AuthContent() {
     setShowLogin(mode !== "signup");
   }, [mode]);
 
+  const completeAuthRedirect = () => {
+    if (typeof window !== "undefined") {
+      window.location.href = nextPath || "/";
+      return;
+    }
+    router.push(nextPath || "/");
+    router.refresh();
+  };
+
   const switchOtpSection = (section: "login" | "signup") => {
     setOtpSection(section);
     setSignupStep("email");
@@ -106,13 +115,9 @@ function AuthContent() {
         throw new Error(data.error || "OTP verification failed");
       }
 
-      if (!data.passwordConfigured) {
-        setSignupStep("setPassword");
-        return;
-      }
-
-      router.push(nextPath || "/");
-      router.refresh();
+      // During sign-up flow, always let users set/update password after OTP verification.
+      // This avoids dead-ends when passwordConfigured is already true for reused profiles.
+      setSignupStep("setPassword");
     } catch (error) {
       setOtpError(error instanceof Error ? error.message : "OTP verification failed");
     } finally {
@@ -145,8 +150,7 @@ function AuthContent() {
         throw new Error(data.error || "Failed to set password");
       }
 
-      router.push(nextPath || "/");
-      router.refresh();
+      completeAuthRedirect();
     } catch (error) {
       setOtpError(error instanceof Error ? error.message : "Failed to set password");
     } finally {
@@ -175,8 +179,7 @@ function AuthContent() {
         throw new Error(data.error || "Password login failed");
       }
 
-      router.push(nextPath || "/");
-      router.refresh();
+      completeAuthRedirect();
     } catch (error) {
       setOtpError(error instanceof Error ? error.message : "Password login failed");
     } finally {

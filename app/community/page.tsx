@@ -22,6 +22,7 @@ import { Heart, Share2 } from "lucide-react";
 import { AiBadge } from "@/components/AiBadge";
 import { getUserAccentColor } from "@/lib/utils";
 import { emitLikeUpdate, subscribeLikeUpdates } from "@/lib/like-sync";
+import { getThemeById } from "@/lib/blog-themes";
 
 interface ApiPost {
   id: string;
@@ -36,6 +37,7 @@ interface ApiPost {
   ai_generated: boolean;
   topic?: string;
   category?: string;
+  blog_theme?: string;
   author_id?: string;
   user_id?: string;
   cover_image_url?: string;
@@ -738,6 +740,7 @@ function CommunityContent() {
                 ) : sortedPosts.length > 0 ? (
                   sortedPosts.map((post) => {
                     const accentColor = getUserAccentColor(post.author_id || post.id);
+                    const blogTheme = getThemeById(post.blog_theme || "default");
                     return (
                     <Link key={post.id} href={`/blog/${post.slug || post.id}`} className="block group">
                       <Card className="bg-surface-container border-outline-variant/10 rounded-2xl overflow-hidden hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300" style={{"--card-accent": accentColor} as React.CSSProperties}>
@@ -787,6 +790,9 @@ function CommunityContent() {
                                   {post.category}
                                 </Badge>
                               )}
+                              <Badge variant="outline" className={`text-[10px] ${blogTheme.accentClass} border-current/30`}>
+                                {blogTheme.previewImage} {blogTheme.name}
+                              </Badge>
                             </div>
                           </div>
                         </CardHeader>

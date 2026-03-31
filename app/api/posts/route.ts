@@ -20,6 +20,13 @@ function isMissingCategoryColumn(error: unknown): boolean {
   return typeof message === 'string' && message.toLowerCase().includes('category');
 }
 
+function isMissingBlogThemeColumn(error: unknown): boolean {
+  const code = typeof error === 'object' && error !== null ? (error as { code?: string }).code : undefined;
+  const message = typeof error === 'object' && error !== null ? (error as { message?: string }).message : undefined;
+  if (code !== 'PGRST204' && code !== '42703') return false;
+  return typeof message === 'string' && message.toLowerCase().includes('blog_theme');
+}
+
 function computeSearchRelevance(post: SearchablePost, query: string): number {
   const q = query.trim().toLowerCase();
   if (!q) return 0;
@@ -284,7 +291,7 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
     const body = await request.json();
-    const { title, content, excerpt, image_url, cover_image_url, published, ai_generated, aiGenerated, topic, category, status, userId: bodyUserId } = body;
+    const { title, content, excerpt, image_url, cover_image_url, published, ai_generated, aiGenerated, topic, category, status, userId: bodyUserId, blog_theme } = body;
 
     // Get user ID from either Clerk auth or OTP session
     let userId = bodyUserId;
@@ -334,11 +341,12 @@ export async function POST(request: NextRequest) {
         ai_generated: isAiGenerated,
         topic: topic || null,
         category: category || null,
+        blog_theme: blog_theme || 'default',
       }])
       .select()
       .single();
 
-    if (createResult.error && isMissingCategoryColumn(createResult.error)) {
+    if (createResult.error && (isMissingCategoryColumn(createResult.error) || isMissingBlogThemeColumn(createResult.error))) {
       createResult = await supabase
         .from('posts')
         .insert([{

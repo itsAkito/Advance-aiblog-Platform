@@ -11,6 +11,13 @@ function isMissingCategoryColumn(error: unknown): boolean {
   return typeof message === 'string' && message.toLowerCase().includes('category');
 }
 
+function isMissingBlogThemeColumn(error: unknown): boolean {
+  const code = typeof error === 'object' && error !== null ? (error as { code?: string }).code : undefined;
+  const message = typeof error === 'object' && error !== null ? (error as { message?: string }).message : undefined;
+  if (code !== 'PGRST204' && code !== '42703') return false;
+  return typeof message === 'string' && message.toLowerCase().includes('blog_theme');
+}
+
 async function tryReadJsonBody(request: NextRequest): Promise<Record<string, any>> {
   const contentLength = request.headers.get('content-length');
   if (contentLength === '0') return {};
@@ -117,7 +124,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const supabase = await createClient();
-    const { title, content, excerpt, image_url, cover_image_url, published, status, topic, category } = body;
+    const { title, content, excerpt, image_url, cover_image_url, published, status, topic, category, blog_theme } = body;
 
     const { data: existingPost, error: existingPostError } = await supabase
       .from('posts')
@@ -160,6 +167,7 @@ export async function PUT(
     if (status !== undefined) updateData.status = status;
     if (topic !== undefined) updateData.topic = topic;
     if (category !== undefined) updateData.category = category;
+    if (blog_theme !== undefined) updateData.blog_theme = blog_theme;
 
     let updateResult = await supabase
       .from('posts')
@@ -168,9 +176,10 @@ export async function PUT(
       .select()
       .single();
 
-    if (updateResult.error && isMissingCategoryColumn(updateResult.error)) {
+    if (updateResult.error && (isMissingCategoryColumn(updateResult.error) || isMissingBlogThemeColumn(updateResult.error))) {
       const fallbackData = { ...updateData };
       delete (fallbackData as Record<string, any>).category;
+      delete (fallbackData as Record<string, any>).blog_theme;
 
       updateResult = await supabase
         .from('posts')

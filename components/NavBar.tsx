@@ -20,6 +20,7 @@ import {
 const GUEST_LINKS = [
   { href: "/", label: "About", icon: "info" },
   { href: "/community", label: "Community", icon: "groups" },
+  { href: "/blog-themes", label: "Themes", icon: "palette" },
   { href: "/forum", label: "Forum", icon: "forum" },
   { href: "/careers", label: "Careers", icon: "work" },
   { href: "/innovation", label: "Innovation", icon: "rocket_launch" },
@@ -28,6 +29,7 @@ const GUEST_LINKS = [
 const AUTH_LINKS = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
   { href: "/community", label: "Community", icon: "groups" },
+  { href: "/blog-themes", label: "Themes", icon: "palette" },
   { href: "/forum", label: "Forum", icon: "forum" },
   { href: "/editor", label: "Write", icon: "edit_note" },
   { href: "/careers", label: "Careers", icon: "work" },

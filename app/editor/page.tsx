@@ -15,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { renderMarkdownBlocks } from "@/lib/markdown";
+import { BLOG_THEMES, getThemeById } from "@/lib/blog-themes";
 
 type Collaborator = {
   id: string;
@@ -36,6 +37,7 @@ function EditorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("id");
+  const themeParam = searchParams.get("theme");
   const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -58,6 +60,8 @@ function EditorContent() {
   const [isAiGenerated, setIsAiGenerated] = useState(false);
   const [showSlashCommand, setShowSlashCommand] = useState(false);
   const [slashCommandPosition, setSlashCommandPosition] = useState({ top: 0, left: 0 });
+  const [blogTheme, setBlogTheme] = useState("default");
+  const [showThemePicker, setShowThemePicker] = useState(false);
   const [showCollaboratorBlock, setShowCollaboratorBlock] = useState(searchParams.get("collab") === "1");
   const [postAuthorId, setPostAuthorId] = useState<string | null>(null);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
@@ -211,6 +215,57 @@ export function example(input: string) {
     setTimeout(() => setSuccess(""), 2500);
   };
 
+  const [uploadingInlineImage, setUploadingInlineImage] = useState(false);
+
+  const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) return;
+
+        setUploadingInlineImage(true);
+        setSuccess("Uploading pasted image...");
+
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("folder", "blog-inline");
+          const response = await fetch("/api/upload", { method: "POST", body: formData });
+          if (!response.ok) throw new Error("Upload failed");
+          const data = await response.json();
+          const imageUrl = data.url;
+
+          // Insert markdown image at cursor position
+          const textarea = contentRef.current;
+          if (textarea) {
+            const start = textarea.selectionStart;
+            const before = content.substring(0, start);
+            const after = content.substring(start);
+            const imageMarkdown = `\n![image](${imageUrl})\n`;
+            setContent(before + imageMarkdown + after);
+            setTimeout(() => {
+              textarea.focus();
+              const newPos = start + imageMarkdown.length;
+              textarea.setSelectionRange(newPos, newPos);
+            }, 0);
+          }
+
+          setSuccess("Image inserted!");
+          setTimeout(() => setSuccess(""), 3000);
+        } catch (err) {
+          setError("Failed to upload pasted image: " + String(err));
+        } finally {
+          setUploadingInlineImage(false);
+        }
+        return;
+      }
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
       e.preventDefault();
@@ -327,6 +382,7 @@ export function example(input: string) {
         setTopic(post.topic || "");
         setCoverImageUrl(post.cover_image_url || "");
         setPostAuthorId(post.author_id || null);
+        setBlogTheme(post.blog_theme || "default");
         setIsEditing(true);
       }
     } catch (err) {
@@ -337,6 +393,13 @@ export function example(input: string) {
   useEffect(() => {
     loadPost();
   }, [loadPost]);
+
+  useEffect(() => {
+    if (!themeParam || isEditing) return;
+    if (BLOG_THEMES.some((theme) => theme.id === themeParam)) {
+      setBlogTheme(themeParam);
+    }
+  }, [themeParam, isEditing]);
 
   const loadCollaborators = useCallback(async () => {
     if (!editId) {
@@ -386,6 +449,7 @@ export function example(input: string) {
 
   const wordCount = content.split(/\s+/).filter((w) => w.length > 0).length;
   const readTime = Math.max(1, Math.ceil(wordCount / 200));
+  const selectedTheme = getThemeById(blogTheme);
   const isPostOwner = !!(user?.id && postAuthorId && user.id === postAuthorId);
 
   const handleGenerateWithAI = async () => {
@@ -546,6 +610,7 @@ export function example(input: string) {
           ai_generated: isAiGenerated,
           userId: user.id,
           published: true,
+          blog_theme: blogTheme,
         }),
       });
       if (!response.ok) throw new Error("Failed to publish");
@@ -678,6 +743,7 @@ export function example(input: string) {
           userId: user.id,
           published: false,
           status: "draft",
+          blog_theme: blogTheme,
         }),
       });
       if (response.ok) {
@@ -693,7 +759,7 @@ export function example(input: string) {
       setSaveStatus("unsaved");
       console.error("Auto-save failed:", err);
     }
-  }, [title, content, excerpt, topic, category, coverImageUrl, isAiGenerated, user, isEditing, editId, router]);
+  }, [title, content, excerpt, topic, category, coverImageUrl, isAiGenerated, blogTheme, user, isEditing, editId, router]);
 
   useEffect(() => {
     const autoSaveTimer = setInterval(() => {
@@ -757,6 +823,38 @@ export function example(input: string) {
                 <span className="material-symbols-outlined text-[16px]">group</span>
                 <span className="hidden sm:inline">Team</span>
               </Button>
+              <Popover open={showThemePicker} onOpenChange={setShowThemePicker}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`h-8 gap-1.5 text-xs ${showThemePicker ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "text-zinc-400 hover:text-white hover:bg-white/10"}`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">palette</span>
+                    <span className="hidden sm:inline">{getThemeById(blogTheme).previewImage} Theme</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 bg-[#23282d] border-white/15 p-3" align="end">
+                  <p className="text-xs font-bold text-zinc-300 mb-2">Choose Blog Theme</p>
+                  <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                    {BLOG_THEMES.map((theme) => (
+                      <button
+                        key={theme.id}
+                        onClick={() => { setBlogTheme(theme.id); setShowThemePicker(false); }}
+                        className={`rounded-lg border p-2 text-left transition-all ${
+                          blogTheme === theme.id
+                            ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                            : "border-white/10 bg-white/3 hover:border-white/20 hover:bg-white/5"
+                        }`}
+                      >
+                        <div className="text-lg mb-0.5">{theme.previewImage}</div>
+                        <div className="text-[10px] font-semibold text-zinc-200 truncate">{theme.name}</div>
+                        <div className="text-[8px] text-zinc-400 truncate">{theme.description}</div>
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
               <Button
                 onClick={handlePublish}
                 disabled={loading}
@@ -1083,6 +1181,45 @@ export function example(input: string) {
               <button onClick={() => insertFormat("\n- [ ] Task 1\n- [ ] Task 2\n", "")} className="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-white/10 transition-colors">Checklist</button>
               <button onClick={() => insertFormat("\n| Metric | Result |\n| --- | --- |\n| Value | Value |\n", "")} className="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-white/10 transition-colors">Table</button>
               <button onClick={() => insertFormat("\n> [!NOTE] ", "")} className="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-white/10 transition-colors">Callout</button>
+              <label className="rounded border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-white/10 transition-colors cursor-pointer flex items-center gap-1">
+                <span className="material-symbols-outlined text-[13px]">image</span>
+                {uploadingInlineImage ? "Uploading..." : "Insert Image"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploadingInlineImage}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setUploadingInlineImage(true);
+                    setSuccess("Uploading image...");
+                    try {
+                      const formData = new FormData();
+                      formData.append("file", file);
+                      formData.append("folder", "blog-inline");
+                      const response = await fetch("/api/upload", { method: "POST", body: formData });
+                      if (!response.ok) throw new Error("Upload failed");
+                      const data = await response.json();
+                      const textarea = contentRef.current;
+                      if (textarea) {
+                        const start = textarea.selectionStart;
+                        const before = content.substring(0, start);
+                        const after = content.substring(start);
+                        const imgMd = `\n![image](${data.url})\n`;
+                        setContent(before + imgMd + after);
+                      }
+                      setSuccess("Image inserted!");
+                      setTimeout(() => setSuccess(""), 3000);
+                    } catch (err) {
+                      setError("Failed to upload image: " + String(err));
+                    } finally {
+                      setUploadingInlineImage(false);
+                      e.target.value = "";
+                    }
+                  }}
+                />
+              </label>
             </div>
 
             {/* WordPress-style bordered editor box */}
@@ -1092,7 +1229,8 @@ export function example(input: string) {
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Start writing your story here... (Type / for slash commands, Markdown supported)"
+                onPaste={handlePaste}
+                placeholder="Start writing your story here... (Type / for slash commands, Ctrl+V to paste images, Markdown supported)"
                 className="w-full min-h-[55vh] bg-[#2a2a2a] p-5 text-zinc-100 placeholder:text-zinc-600 outline-none resize-none text-base leading-[1.85] font-mono"
               />
               {showSlashCommand && (
@@ -1171,7 +1309,7 @@ export function example(input: string) {
                 </div>
               </div>
 
-              {/* Category Selection */}
+              {/* Blog Category */}
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Blog Category</span>
                 <select
@@ -1190,6 +1328,29 @@ export function example(input: string) {
                   <option value="Art & Culture">Art & Culture</option>
                   <option value="Research">Research</option>
                 </select>
+              </div>
+
+              {/* Blog Theme Picker */}
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Blog Theme</span>
+                <p className="text-[10px] text-on-surface-variant mt-1 mb-3">Choose a visual style for your published post</p>
+                <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
+                  {BLOG_THEMES.map((theme) => (
+                    <button
+                      key={theme.id}
+                      onClick={() => setBlogTheme(theme.id)}
+                      className={`rounded-lg border p-2 text-left transition-all ${
+                        blogTheme === theme.id
+                          ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                          : "border-white/10 bg-white/3 hover:border-white/20 hover:bg-white/5"
+                      }`}
+                    >
+                      <div className="text-lg mb-1">{theme.previewImage}</div>
+                      <div className="text-[11px] font-semibold text-on-surface truncate">{theme.name}</div>
+                      <div className="text-[9px] text-on-surface-variant truncate">{theme.description}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Tone Analysis Result */}
@@ -1349,11 +1510,11 @@ export function example(input: string) {
               <p className="text-xs text-on-surface-variant mt-1">How your post will look</p>
             </div>
 
-            <div className="flex-1 p-6 overflow-y-auto">
+            <div className={`flex-1 p-6 overflow-y-auto ${selectedTheme.bgClass} ${selectedTheme.fontClass}`}>
               {/* Preview Content */}
-              <div className="prose prose-invert max-w-none">
+              <div className={`${selectedTheme.proseClass} max-w-none ${selectedTheme.textClass}`}>
                 {/* Rendered Title */}
-                <h1 className="text-3xl font-bold text-on-surface mb-4 leading-tight">
+                <h1 className={`text-3xl font-bold mb-4 leading-tight ${selectedTheme.headingClass}`}>
                   {title || "Untitled Post"}
                 </h1>
 
@@ -1374,23 +1535,23 @@ export function example(input: string) {
 
                 {/* Metadata */}
                 <div className="flex items-center gap-3 mb-6 pb-6 border-b border-outline-variant/10">
-                  <Badge className="bg-primary/10 text-primary text-xs">
+                  <Badge className={`bg-current/10 ${selectedTheme.accentClass} text-xs`}>
                     {category}
                   </Badge>
-                  <span className="text-xs text-on-surface-variant">
+                  <span className={`text-xs ${selectedTheme.textClass}`}>
                     {wordCount} words • {readTime} min read
                   </span>
                 </div>
 
                 {/* Excerpt */}
                 {excerpt && (
-                  <p className="text-lg text-on-surface-variant italic mb-6 leading-relaxed">
+                  <p className={`text-lg italic mb-6 leading-relaxed ${selectedTheme.textClass}`}>
                     {excerpt}
                   </p>
                 )}
 
                 {/* Rendered Markdown Content */}
-                <div className="text-on-surface leading-relaxed space-y-4">
+                <div className={`${selectedTheme.textClass} leading-relaxed space-y-4`}>
                   {renderMarkdownBlocks(content)}
                 </div>
               </div>
