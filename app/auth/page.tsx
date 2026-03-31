@@ -33,8 +33,11 @@ function AuthContent() {
   const [otpError, setOtpError] = useState("");
   const [devOtp, setDevOtp] = useState<string | null>(null);
   const [devResetToken, setDevResetToken] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   const nextPath = nextParam && nextParam.startsWith("/") ? nextParam : "/";
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     setShowLogin(mode !== "signup");
@@ -332,31 +335,43 @@ function AuthContent() {
           )}
 
           {authMethod === "clerk" && showLogin ? (
-            <SignIn
-              appearance={{
-                baseTheme: dark,
-                elements: {
-                  rootBox: "w-full",
-                  cardBox: "w-full shadow-none",
-                  card: "bg-surface-container-low border border-outline-variant/20 shadow-none",
-                },
-              }}
-              routing="hash"
-              forceRedirectUrl={nextPath}
-            />
+            mounted ? (
+              <SignIn
+                appearance={{
+                  baseTheme: dark,
+                  elements: {
+                    rootBox: "w-full",
+                    cardBox: "w-full shadow-none",
+                    card: "bg-surface-container-low border border-outline-variant/20 shadow-none",
+                  },
+                }}
+                routing="hash"
+                forceRedirectUrl={nextPath}
+              />
+            ) : (
+              <div className="w-full h-64 flex items-center justify-center">
+                <Skeleton className="h-8 w-48" />
+              </div>
+            )
           ) : authMethod === "clerk" ? (
-            <SignUp
-              appearance={{
-                baseTheme: dark,
-                elements: {
-                  rootBox: "w-full",
-                  cardBox: "w-full shadow-none",
-                  card: "bg-surface-container-low border border-outline-variant/20 shadow-none",
-                },
-              }}
-              routing="hash"
-              forceRedirectUrl={nextPath}
-            />
+            mounted ? (
+              <SignUp
+                appearance={{
+                  baseTheme: dark,
+                  elements: {
+                    rootBox: "w-full",
+                    cardBox: "w-full shadow-none",
+                    card: "bg-surface-container-low border border-outline-variant/20 shadow-none",
+                  },
+                }}
+                routing="hash"
+                forceRedirectUrl={nextPath}
+              />
+            ) : (
+              <div className="w-full h-64 flex items-center justify-center">
+                <Skeleton className="h-8 w-48" />
+              </div>
+            )
           ) : (
             <Card className="w-full bg-surface-container-low border-outline-variant/20">
               <CardContent className="p-6 space-y-4">
