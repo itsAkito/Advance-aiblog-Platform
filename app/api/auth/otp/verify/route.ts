@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     // already exists under a different ID.
     const existingProfileLookup = await supabase
       .from('profiles')
-      .select('id, email, name, role, profile_image_url')
+      .select('id, email, name, role, avatar_url')
       .eq('email', normalizedEmail)
       .maybeSingle();
 
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
         // Last resort: try a plain insert, ignoring conflict.
         await supabase.from('profiles').insert({ id: targetProfileId, email: normalizedEmail, name: userName, role }).select().maybeSingle();
         // Re-fetch after insert attempt
-        const refetch = await supabase.from('profiles').select('id, email, name, role, profile_image_url').eq('id', targetProfileId).maybeSingle();
+        const refetch = await supabase.from('profiles').select('id, email, name, role, avatar_url').eq('id', targetProfileId).maybeSingle();
         if (refetch.data) {
           profile = refetch.data;
         }
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
 
       // If still no profile after all attempts, re-fetch by email one more time.
       if (!profile) {
-        const retryLookup = await supabase.from('profiles').select('id, email, name, role, profile_image_url').eq('email', normalizedEmail).maybeSingle();
+        const retryLookup = await supabase.from('profiles').select('id, email, name, role, avatar_url').eq('email', normalizedEmail).maybeSingle();
         if (retryLookup.data) {
           profile = retryLookup.data;
         }
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
       id: profile?.id || targetProfileId,
       email: normalizedEmail,
       name: profile?.name || userName,
-      avatar_url: profile?.profile_image_url || null,
+      avatar_url: profile?.avatar_url || null,
       role: profile?.role || role,
     };
 

@@ -1,18 +1,19 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/utils/supabase/server";
 
 /**
  * POST /api/auth/signout
  *
  * Unified sign-out for ALL auth types — no Clerk Server Actions involved:
  *   - Clerk sessions  → revoked via Clerk backend SDK + browser cookies cleared
- *   - OTP sessions    → otp_session_token cookie cleared
+ *   - OTP sessions    → marked inactive in DB + otp_session_token cookie cleared
  *   - Admin sessions  → admin_session_token cookie cleared
  *
  * Clearing Clerk's __session cookie immediately terminates browser state
  * without waiting for the short-lived JWT to expire.
  */
-export async function POST(_request: Request) {
+export async function POST(request: NextRequest) {
   const response = NextResponse.json({ success: true }, { status: 200 });
 
   const cookieOpts = {
@@ -35,13 +36,27 @@ export async function POST(_request: Request) {
     // Non-fatal — OTP/admin users have no Clerk session
   }
 
-  // 2. Clear ALL Clerk browser cookies so UI signed-out state is immediate
+  // 2. Invalidate OTP session in database so stolen tokens cannot be reused
+  try {
+    const otpToken = request.cookies.get("otp_session_token")?.value;
+    if (otpToken) {
+      const supabase = await createClient();
+      await supabase
+        .from("otp_sessions")
+        .update({ is_active: false })
+        .eq("session_token", otpToken);
+    }
+  } catch {
+    // Non-fatal — DB invalidation is best-effort
+  }
+
+  // 3. Clear ALL Clerk browser cookies so UI signed-out state is immediate
   //    (Clerk short-lived JWT would otherwise keep user "logged in" for up to 60s)
   response.cookies.set("__session", "", cookieOpts);
   response.cookies.set("__client_uat", "", cookieOptsPublic);
   response.cookies.set("__clerk_db_jwt", "", cookieOptsPublic); // dev mode only
 
-  // 3. Clear custom auth cookies
+  // 4. Clear custom auth cookies
   response.cookies.set("otp_session_token", "", cookieOpts);
   response.cookies.set("otp_session", "", cookieOpts);
   response.cookies.set("admin_session_token", "", cookieOpts);

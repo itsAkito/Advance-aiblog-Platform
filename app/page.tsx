@@ -75,6 +75,7 @@ export default function Home() {
   useScrollReveal();
   const router = useRouter();
   const { isAuthenticated } = useAuth();
+  const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
@@ -154,6 +155,8 @@ export default function Home() {
     fetchForumTopics();
   }, []);
 
+  useEffect(() => setMounted(true), []);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -222,7 +225,7 @@ export default function Home() {
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button asChild className="px-8 py-3.5 h-auto bg-linear-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">
-                <Link href={isAuthenticated ? "/pricing" : "/auth?next=%2Fpricing"}>Get Started Free</Link>
+                <Link href={mounted && isAuthenticated ? "/pricing" : "/auth?next=%2Fpricing"}>Get Started Free</Link>
               </Button>
               <Button asChild variant="outline" className="px-8 py-3.5 h-auto font-bold rounded-xl">
                 <Link href="/community">Join Community</Link>
@@ -399,7 +402,7 @@ export default function Home() {
         </section>
 
         {/* Logged-in User Insights Bar */}
-        {isAuthenticated && (
+        {mounted && isAuthenticated && (
           <div className="px-4 sm:px-8 pb-6">
             <div className="max-w-7xl mx-auto">
               <div className="rounded-2xl border border-white/8 overflow-hidden" style={{background: 'linear-gradient(135deg, rgba(59,130,246,0.12) 0%, rgba(139,92,246,0.10) 50%, rgba(16,185,129,0.08) 100%)'}}>

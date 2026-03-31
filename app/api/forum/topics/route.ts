@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('name, profile_image_url')
+      .select('name, avatar_url')
       .eq('id', userId)
       .maybeSingle();
 
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
         content: content.trim(),
         author_id: userId,
         author_name: profile?.name || 'Anonymous',
-        author_avatar: profile?.profile_image_url || null,
+        author_avatar: profile?.avatar_url || null,
         tags: Array.isArray(tags) ? tags.slice(0, 5) : [],
       })
       .select('*, forum_categories(id, name, slug, icon, gradient)')

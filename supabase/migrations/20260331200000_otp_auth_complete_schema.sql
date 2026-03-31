@@ -37,7 +37,7 @@ CREATE POLICY IF NOT EXISTS "service_role_all_profiles"
 -- Unique constraint on email so we upsert on conflict.
 CREATE TABLE IF NOT EXISTS public.otp_codes (
   id         UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
-  email      TEXT        NOT NULL,
+  email      TEXT        UNIQUE NOT NULL,
   code       TEXT        NOT NULL,
   expires_at TIMESTAMPTZ NOT NULL,
   verified   BOOLEAN     DEFAULT false,

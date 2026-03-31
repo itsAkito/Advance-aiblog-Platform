@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, email, name, role, profile_image_url')
+      .select('id, email, name, role, avatar_url')
       .eq('email', normalizedEmail)
       .maybeSingle();
 
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
         id: profile.id,
         email: profile.email,
         name: profile.name,
-        avatar_url: profile.profile_image_url || null,
+        avatar_url: profile.avatar_url || null,
         role: profile.role,
       },
     });

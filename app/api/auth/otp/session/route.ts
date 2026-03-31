@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
         id: profile.id,
         email: profile.email,
         name: profile.name,
-        avatar_url: profile.profile_image_url,
+        avatar_url: profile.avatar_url,
         role: profile.role,
       },
       session: {

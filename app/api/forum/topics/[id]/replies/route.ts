@@ -62,7 +62,7 @@ export async function POST(
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('name, profile_image_url')
+      .select('name, avatar_url')
       .eq('id', userId)
       .maybeSingle();
 
@@ -73,7 +73,7 @@ export async function POST(
         parent_id: parent_id || null,
         author_id: userId,
         author_name: profile?.name || 'Anonymous',
-        author_avatar: profile?.profile_image_url || null,
+        author_avatar: profile?.avatar_url || null,
         content: content.trim(),
       })
       .select()
