@@ -131,13 +131,13 @@ export async function GET(request: NextRequest) {
     if (published) {
       query = query.eq('status', 'published');
       if (!canSeeUnpublished) {
-        query = query.eq('approval_status', 'approved');
+        query = query.or('approval_status.eq.approved,approval_status.is.null');
       }
     } else if (status && canSeeUnpublished) {
       query = query.eq('status', status);
     } else if (!canSeeUnpublished) {
       query = query.eq('status', 'published');
-      query = query.eq('approval_status', 'approved');
+      query = query.or('approval_status.eq.approved,approval_status.is.null');
     }
 
     if (userId) {
@@ -176,13 +176,13 @@ export async function GET(request: NextRequest) {
       if (published) {
         fallbackQuery = fallbackQuery.eq('status', 'published');
         if (!canSeeUnpublished) {
-          fallbackQuery = fallbackQuery.eq('approval_status', 'approved');
+          fallbackQuery = fallbackQuery.or('approval_status.eq.approved,approval_status.is.null');
         }
       } else if (status && canSeeUnpublished) {
         fallbackQuery = fallbackQuery.eq('status', status);
       } else if (!canSeeUnpublished) {
         fallbackQuery = fallbackQuery.eq('status', 'published');
-        fallbackQuery = fallbackQuery.eq('approval_status', 'approved');
+        fallbackQuery = fallbackQuery.or('approval_status.eq.approved,approval_status.is.null');
       }
 
       if (userId) {

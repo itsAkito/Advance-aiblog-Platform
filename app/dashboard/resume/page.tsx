@@ -689,7 +689,10 @@ export default function ResumeBuilderPage() {
                                   value={exp.description}
                                   onChange={(e) => updateExperience(index, "description", e.target.value)}
                                   rows={5}
-                                  className="w-full rounded-lg border p-3 text-sm outline-none"
+                                  placeholder="- Led a team of 5 engineers to deliver...
+- Increased revenue by 30% through...
+- Automated deployment pipeline reducing..."
+                                  className="w-full rounded-lg border p-3 text-sm outline-none bg-[#241e3a] text-white placeholder-zinc-500"
                                   style={{ borderColor: P.outlineVariant }}
                                 />
                               </div>
@@ -758,7 +761,7 @@ export default function ResumeBuilderPage() {
                     <section className="rounded-2xl border bg-[#1a1433] p-6" style={{ borderColor: `${P.outlineVariant}66` }}>
                       <h2 className="mb-4 text-lg font-bold" style={{ color: P.primary }}>Skills</h2>
                       <div className="mb-4 flex gap-2">
-                        <input value={newSkill} onChange={(e) => setNewSkill(e.target.value)} className={inputClass} placeholder="React, TypeScript, Leadership..." style={{ borderColor: P.outlineVariant }} />
+                        <input value={newSkill} onChange={(e) => setNewSkill(e.target.value)} className={inputClass} placeholder="React, TypeScript, Leadership..." style={{ borderColor: P.outlineVariant }} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSkill(); } }} />
                         <button className="rounded-lg px-3 text-sm font-bold text-white" style={{ background: P.primary }} onClick={addSkill}>Add</button>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -769,6 +772,12 @@ export default function ResumeBuilderPage() {
                           </span>
                         ))}
                       </div>
+                      {resumeData.skills.length < 5 && (
+                        <div className="mt-4 flex items-start gap-2 rounded-xl p-3" style={{ background: P.tertiaryFixed, color: P.onTertiaryFixed }}>
+                          <Lightbulb className="mt-0.5 h-4 w-4" />
+                          <p className="text-xs font-medium">ATS tip: Add at least 5 skills matching the job description for best results.</p>
+                        </div>
+                      )}
                     </section>
                   )}
 
@@ -806,7 +815,7 @@ export default function ResumeBuilderPage() {
 
                       <div className="rounded-2xl border bg-[#1a1433] p-6" style={{ borderColor: `${P.outlineVariant}66` }}>
                         <label className="mb-1 block text-xs font-bold uppercase tracking-wider" style={{ color: P.outline }}>Professional Summary</label>
-                        <textarea value={resumeData.summary} onChange={(e) => setField("summary", e.target.value)} rows={6} className="w-full rounded-lg border p-3 text-sm outline-none" style={{ borderColor: P.outlineVariant }} />
+                        <textarea value={resumeData.summary} onChange={(e) => setField("summary", e.target.value)} rows={6} placeholder="A results-driven professional with X+ years of experience in..." className="w-full rounded-lg border p-3 text-sm outline-none bg-[#241e3a] text-white placeholder-zinc-500" style={{ borderColor: P.outlineVariant }} />
                       </div>
                     </section>
                   )}

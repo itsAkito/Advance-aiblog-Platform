@@ -300,7 +300,7 @@ export default function Home() {
           <div className="w-full max-w-5xl grid grid-cols-2 lg:grid-cols-4 gap-4 px-2 mt-16 reveal-on-scroll">
             {[
               { value: publicStats?.display.activeCreators || "0", label: "Active Creators", gradient: "from-blue-500/20 to-cyan-500/10", border: "hover:border-blue-500/40", glow: "hover:shadow-blue-500/15" },
-              { value: publicStats?.display.syntheticPosts || "0", label: "Synthetic Posts", gradient: "from-violet-500/20 to-purple-500/10", border: "hover:border-violet-500/40", glow: "hover:shadow-violet-500/15" },
+              { value: publicStats?.display.syntheticPosts || "0", label: "Published Posts", gradient: "from-violet-500/20 to-purple-500/10", border: "hover:border-violet-500/40", glow: "hover:shadow-violet-500/15" },
               { value: publicStats?.display.monthlyReads || "0", label: "Monthly Reads", gradient: "from-emerald-500/20 to-teal-500/10", border: "hover:border-emerald-500/40", glow: "hover:shadow-emerald-500/15" },
               { value: publicStats?.display.industryMentors || "0", label: "Industry Mentors", gradient: "from-pink-500/20 to-rose-500/10", border: "hover:border-pink-500/40", glow: "hover:shadow-pink-500/15" },
             ].map((stat) => (

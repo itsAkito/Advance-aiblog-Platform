@@ -16,7 +16,7 @@ function BlogPreviewCard({ tmpl, categoryLabel }: { tmpl: BlockTemplate; categor
   const editorLink = `/editor?templateTheme=${tmpl.id}&bg=${encodeURIComponent(p.bg)}&accent=${encodeURIComponent(p.accent)}&heading=${encodeURIComponent(p.heading)}&text=${encodeURIComponent(p.text)}&surface=${encodeURIComponent(p.surface)}&muted=${encodeURIComponent(p.muted)}&font=${encodeURIComponent(tmpl.font)}`;
 
   return (
-    <article className="border overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl group" style={{ backgroundColor: p.surface, borderColor: `${p.muted}25` }}>
+    <article className="border overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl group relative" style={{ backgroundColor: p.surface, borderColor: `${p.muted}25` }}>
       {/* Browser chrome bar */}
       <div className="flex items-center gap-1.5 px-3 py-2 border-b" style={{ backgroundColor: p.bg, borderColor: `${p.muted}20` }}>
         <div className="flex gap-1">
@@ -71,8 +71,17 @@ function BlogPreviewCard({ tmpl, categoryLabel }: { tmpl: BlockTemplate; categor
         </div>
       </div>
 
+      {/* Hover description overlay */}
+      <div className="absolute inset-0 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10" style={{ background: `linear-gradient(to top, ${p.bg}f5 0%, ${p.bg}e0 40%, transparent 100%)` }}>
+        <div className="p-4 pointer-events-auto">
+          <p className="text-xs leading-relaxed line-clamp-4 mb-3" style={{ color: p.text, fontFamily: tmpl.font }}>
+            {tmpl.description}
+          </p>
+        </div>
+      </div>
+
       {/* Palette swatches + action */}
-      <div className="p-3 flex items-center gap-2 border-t" style={{ backgroundColor: p.surface, borderColor: `${p.muted}15` }}>
+      <div className="p-3 flex items-center gap-2 border-t relative z-20" style={{ backgroundColor: p.surface, borderColor: `${p.muted}15` }}>
         <div className="flex gap-0.5 flex-1">
           {Object.values(p).map((color, i) => (
             <div key={i} className="w-3 h-3 border" style={{ backgroundColor: color, borderColor: `${p.muted}20` }} title={color} />
@@ -80,7 +89,7 @@ function BlogPreviewCard({ tmpl, categoryLabel }: { tmpl: BlockTemplate; categor
         </div>
         <Link
           href={editorLink}
-          className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-opacity hover:opacity-80"
+          className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0"
           style={{ backgroundColor: p.accent, color: p.bg }}
         >
           Use Theme

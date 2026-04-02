@@ -22,7 +22,7 @@ export async function GET() {
     }
 
     const uniqueAuthors = new Set((postAuthors || []).map((p) => p.author_id).filter(Boolean));
-    const syntheticPosts = (postAuthors || []).filter((p) => p.ai_generated).length;
+    const totalPosts = (postAuthors || []).length;
     const monthlyReads = (postAuthors || []).reduce((sum, p) => sum + (p.views || 0), 0);
 
     // Industry mentors: explicit mentor role, with fallback to admins if mentor role is not used.
@@ -48,20 +48,24 @@ export async function GET() {
     const payload = {
       raw: {
         activeCreators: uniqueAuthors.size,
-        syntheticPosts,
+        syntheticPosts: totalPosts,
         monthlyReads,
         industryMentors: finalMentorCount,
       },
       display: {
         activeCreators: compactNumber(uniqueAuthors.size),
-        syntheticPosts: compactNumber(syntheticPosts),
+        syntheticPosts: compactNumber(totalPosts),
         monthlyReads: compactNumber(monthlyReads),
         industryMentors: compactNumber(finalMentorCount),
       },
       updatedAt: new Date().toISOString(),
     };
 
-    return NextResponse.json(payload);
+    return NextResponse.json(payload, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+      },
+    });
   } catch (error) {
     console.error('Public stats error:', error);
     return NextResponse.json(

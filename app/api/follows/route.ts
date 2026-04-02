@@ -188,10 +188,59 @@ export async function POST(request: NextRequest) {
 
     const canUseUserFollows = !isMissingUserFollowsTableError(alreadyFollowingResult.error);
 
+    let status: 'pending' | 'accepted' = 'accepted';
+    let message = 'Following';
     let requestId: string | undefined;
-    let status: 'pending' | 'accepted' = 'pending';
-    let message = 'Follow request sent';
 
+    // Try direct follow first via user_follows table
+    if (canUseUserFollows) {
+      const { error: directFollowError } = await supabase
+        .from('user_follows')
+        .upsert(
+          { follower_id: followerUserId, following_id: followingUserId },
+          { onConflict: 'follower_id,following_id', ignoreDuplicates: true }
+        );
+
+      if (directFollowError && !isMissingUserFollowsTableError(directFollowError)) {
+        throw directFollowError;
+      }
+
+      if (!directFollowError) {
+        // Direct follow succeeded
+        try {
+          const { data: followerProfile } = await supabase
+            .from('profiles')
+            .select('name')
+            .eq('id', followerUserId)
+            .single();
+
+          const followerName = followerProfile?.name || 'A user';
+
+          await supabase.from('notifications').insert({
+            user_id: followingUserId,
+            related_user_id: followerUserId,
+            type: 'follow',
+            title: 'New Follower',
+            message: `${followerName} started following you`,
+            icon: 'person_add',
+          });
+
+          await logActivity({
+            userId: followerUserId,
+            activityType: 'admin_action',
+            entityType: 'user',
+            entityId: followingUserId,
+            metadata: { action: 'follow_created', status: 'accepted' },
+          });
+        } catch (notificationError) {
+          console.warn('Failed to create follow notification:', notificationError);
+        }
+
+        return NextResponse.json({ success: true, status: 'accepted', message: 'Following' });
+      }
+    }
+
+    // Fallback to follow_requests table
     try {
       const { data: existingRequest, error: existingRequestError } = await supabase
         .from('follow_requests')
@@ -234,45 +283,22 @@ export async function POST(request: NextRequest) {
         if (requestError) throw requestError;
         requestId = newRequest.id;
       }
+
+      status = 'pending';
+      message = 'Follow request sent';
     } catch (followRequestError) {
       if (!isFollowRequestSchemaError(followRequestError)) {
         throw followRequestError;
       }
 
-      if (!canUseUserFollows) {
-        return NextResponse.json(
-          {
-            success: false,
-            status: 'unavailable',
-            message: 'Follow feature is temporarily unavailable in this environment.',
-          },
-          { status: 503 }
-        );
-      }
-
-      const { error: directFollowError } = await supabase
-        .from('user_follows')
-        .upsert(
-          { follower_id: followerUserId, following_id: followingUserId },
-          { onConflict: 'follower_id,following_id', ignoreDuplicates: true }
-        );
-
-      if (directFollowError) {
-        if (isMissingUserFollowsTableError(directFollowError)) {
-          return NextResponse.json(
-            {
-              success: false,
-              status: 'unavailable',
-              message: 'Follow feature is temporarily unavailable in this environment.',
-            },
-            { status: 503 }
-          );
-        }
-        throw directFollowError;
-      }
-
-      status = 'accepted';
-      message = 'Following';
+      return NextResponse.json(
+        {
+          success: false,
+          status: 'unavailable',
+          message: 'Follow feature is temporarily unavailable in this environment.',
+        },
+        { status: 503 }
+      );
     }
 
     try {
@@ -287,13 +313,10 @@ export async function POST(request: NextRequest) {
       await supabase.from('notifications').insert({
         user_id: followingUserId,
         related_user_id: followerUserId,
-        type: status === 'pending' ? 'follow_request' : 'follow',
-        title: status === 'pending' ? 'Follow Request' : 'New Follower',
-        message:
-          status === 'pending'
-            ? `${followerName} wants to follow you`
-            : `${followerName} started following you`,
-        action_url: status === 'pending' && requestId ? `follow_request:${requestId}` : null,
+        type: 'follow_request',
+        title: 'Follow Request',
+        message: `${followerName} wants to follow you`,
+        action_url: requestId ? `follow_request:${requestId}` : null,
         icon: 'person_add',
       });
 
@@ -302,11 +325,7 @@ export async function POST(request: NextRequest) {
         activityType: 'admin_action',
         entityType: 'user',
         entityId: followingUserId,
-        metadata: {
-          action: status === 'pending' ? 'follow_request_sent' : 'follow_created',
-          requestId: requestId || null,
-          status,
-        },
+        metadata: { action: 'follow_request_sent', requestId: requestId || null, status },
       });
     } catch (notificationError) {
       console.warn('Failed to create follow request notification:', notificationError);
@@ -350,12 +369,33 @@ export async function DELETE(request: NextRequest) {
 
     if (error) {
       if (isMissingUserFollowsTableError(error)) {
-        return NextResponse.json({
-          success: false,
-          message: 'Follow feature is temporarily unavailable in this environment.',
-        });
+        // Try deleting from follow_requests as fallback
+        const { error: reqError } = await supabase
+          .from('follow_requests')
+          .delete()
+          .eq('from_user_id', followerUserId)
+          .eq('to_user_id', followingUserId);
+
+        if (reqError && !isMissingFollowRequestsTableError(reqError)) {
+          return NextResponse.json({
+            success: false,
+            message: 'Follow feature is temporarily unavailable in this environment.',
+          });
+        }
+        return NextResponse.json({ success: true });
       }
       throw error;
+    }
+
+    // Also clean up any pending follow_requests
+    try {
+      await supabase
+        .from('follow_requests')
+        .delete()
+        .eq('from_user_id', followerUserId)
+        .eq('to_user_id', followingUserId);
+    } catch {
+      // Ignore - follow_requests table may not exist
     }
 
     return NextResponse.json({ success: true });
