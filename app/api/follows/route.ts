@@ -31,6 +31,11 @@ function isFollowRequestSchemaError(error: unknown): boolean {
   );
 }
 
+function isNoRowsError(error: unknown): boolean {
+  const code = typeof error === 'object' && error !== null ? (error as { code?: string }).code : undefined;
+  return code === 'PGRST116';
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -167,7 +172,11 @@ export async function POST(request: NextRequest) {
       .eq('following_id', followingUserId)
       .single();
 
-    if (alreadyFollowingResult.error && !isMissingUserFollowsTableError(alreadyFollowingResult.error)) {
+    if (
+      alreadyFollowingResult.error &&
+      !isMissingUserFollowsTableError(alreadyFollowingResult.error) &&
+      !isNoRowsError(alreadyFollowingResult.error)
+    ) {
       throw alreadyFollowingResult.error;
     }
 

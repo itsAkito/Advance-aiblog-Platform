@@ -64,7 +64,10 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      query = query.or(`title.ilike.%${search}%,excerpt.ilike.%${search}%,content.ilike.%${search}%,topic.ilike.%${search}%,category.ilike.%${search}%`);
+      const safe = search.replace(/[,.()'"\\ ]/g, ' ').trim();
+      if (safe) {
+        query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content.ilike.%${safe}%,topic.ilike.%${safe}%,category.ilike.%${safe}%`);
+      }
     }
 
     const { data, error, count } = await query.range(offset, offset + limit - 1);

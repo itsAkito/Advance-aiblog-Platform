@@ -68,9 +68,15 @@ const config: Config = {
         label: ["var(--font-inter)", "sans-serif"],
       },
       borderRadius: {
-        DEFAULT: "0.25rem",
-        lg: "0.5rem",
-        xl: "0.75rem",
+        none: "0",
+        DEFAULT: "0",
+        sm: "0",
+        md: "0",
+        lg: "0",
+        xl: "0",
+        "2xl": "0",
+        "3xl": "0",
+        full: "0",
       },
       animation: {
         "fade-in-up": "fadeInUp 0.8s ease-out forwards",

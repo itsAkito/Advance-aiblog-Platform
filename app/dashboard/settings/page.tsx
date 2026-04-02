@@ -16,12 +16,22 @@ export default function SettingsPage() {
     displayName: "",
     bio: "",
     website: "",
+    avatar_url: "",
     aiPersona: "professional",
     emailNotifications: true,
     pushNotifications: false,
     weeklyDigest: true,
     twoFactorEnabled: false,
   });
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+
+  const PRESET_AVATARS = [
+    { id: "avatar-1", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=b6e3f4", label: "Felix" },
+    { id: "avatar-2", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka&backgroundColor=c0aede", label: "Aneka" },
+    { id: "avatar-3", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Midnight&backgroundColor=d1d4f9", label: "Midnight" },
+    { id: "avatar-4", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Orbit&backgroundColor=ffd5dc", label: "Orbit" },
+    { id: "avatar-5", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sage&backgroundColor=c1f0c1", label: "Sage" },
+  ];
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -34,6 +44,7 @@ export default function SettingsPage() {
             displayName: profileData.name || "",
             bio: profileData.bio || "",
             website: profileData.website || "",
+            avatar_url: profileData.avatar_url || "",
           }));
         }
       }
@@ -57,6 +68,7 @@ export default function SettingsPage() {
           name: profile.displayName,
           bio: profile.bio,
           website: profile.website,
+          avatar_url: profile.avatar_url || undefined,
         }),
       });
 
@@ -117,20 +129,49 @@ export default function SettingsPage() {
                 {activeSection === "profile" && (
                   <div className="glass-panel rounded-2xl p-8">
                     <h2 className="text-xl font-bold font-headline mb-6">Profile Identity</h2>
-                    <div className="flex items-center gap-6 mb-8">
+                    <div className="flex items-center gap-6 mb-4">
                       <Image
-                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || "user"}`}
+                        src={profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || "user"}`}
                         alt="Avatar"
                         width={80}
                         height={80}
                         className="w-20 h-20 rounded-xl border-2 border-outline-variant/20"
                       />
                       <div>
-                        <p className="font-bold">{user?.email}</p>
-                        <p className="text-xs text-on-surface-variant">Creator • Member since 2024</p>
-                        <button className="mt-2 text-xs text-primary font-bold hover:underline">Change Avatar</button>
+                        <p className="font-bold">{profile.displayName || user?.email}</p>
+                        <p className="text-xs text-on-surface-variant">Creator</p>
+                        <button
+                          type="button"
+                          onClick={() => setShowAvatarPicker(!showAvatarPicker)}
+                          className="mt-2 text-xs text-primary font-bold hover:underline"
+                        >
+                          {showAvatarPicker ? "Close" : "Change Avatar"}
+                        </button>
                       </div>
                     </div>
+                    {showAvatarPicker && (
+                      <div className="mb-8 p-4 bg-surface-container-low border border-outline-variant/20 rounded-lg">
+                        <p className="text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-3">Choose an Avatar</p>
+                        <div className="flex gap-3 flex-wrap">
+                          {PRESET_AVATARS.map((av) => (
+                            <button
+                              key={av.id}
+                              type="button"
+                              onClick={() => {
+                                setProfile({ ...profile, avatar_url: av.url });
+                                setShowAvatarPicker(false);
+                              }}
+                              className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${
+                                profile.avatar_url === av.url ? "border-primary ring-2 ring-primary/30" : "border-outline-variant/20 hover:border-primary/50"
+                              }`}
+                            >
+                              <Image src={av.url} alt={av.label} width={64} height={64} className="w-full h-full" />
+                              <span className="absolute bottom-0 inset-x-0 bg-black/60 text-[8px] text-white text-center py-0.5">{av.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="space-y-4">
                       <div>
                         <label className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2">Display Name</label>

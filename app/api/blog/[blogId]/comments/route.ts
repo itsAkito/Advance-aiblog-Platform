@@ -38,7 +38,7 @@ export async function POST(
           user_id: userId,
           parent_comment_id: parentCommentId || null,
           content: content.trim(),
-          is_approved: true,
+          is_approved: false,
         },
       ])
       .select()

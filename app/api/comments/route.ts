@@ -20,11 +20,24 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50', 10);
 
     const supabase = await createClient();
+    const authUserId = await getAuthUserId(request);
+
+    // Check if this is an admin request (admins see all comments)
+    let isAdmin = false;
+    if (authUserId) {
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', authUserId).maybeSingle();
+      isAdmin = profile?.role === 'admin';
+    }
+
     let query = supabase
       .from('comments')
-      .select('id, post_id, community_post_id, user_id, guest_name, guest_email, content, created_at')
+      .select('id, post_id, community_post_id, user_id, guest_name, guest_email, content, created_at, is_approved')
       .order('created_at', { ascending: false })
       .limit(limit);
+
+    if (!isAdmin) {
+      query = query.eq('is_approved', true);
+    }
 
     // If neither postId nor communityPostId provided, return all recent comments
     if (postId) {

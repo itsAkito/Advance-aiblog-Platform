@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getAuthUserId } from '@/lib/auth-helpers';
+import { sendCollaborationInviteEmail } from '@/lib/mailer';
 
 async function isOwner(supabase: any, postId: string, userId: string) {
   const { data } = await supabase.from('posts').select('author_id').eq('id', postId).single();
@@ -52,6 +53,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const owner = await isOwner(supabase, postId, inviterId);
     if (!owner) return NextResponse.json({ error: 'Only owner can invite collaborators' }, { status: 403 });
 
+    const [{ data: inviterProfile }, { data: post }] = await Promise.all([
+      supabase.from('profiles').select('name,email').eq('id', inviterId).maybeSingle(),
+      supabase.from('posts').select('title').eq('id', postId).maybeSingle(),
+    ]);
+
     const body = await request.json();
     const permission = body.permission === 'viewer' ? 'viewer' : 'editor';
 
@@ -60,7 +66,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!targetUserId && body.email) {
       const { data: profileByEmail } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id,name,email')
         .eq('email', String(body.email).toLowerCase())
         .single();
       targetUserId = profileByEmail?.id;
@@ -87,6 +93,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
+    const { data: inviteeProfile } = await supabase
+      .from('profiles')
+      .select('name,email')
+      .eq('id', targetUserId)
+      .maybeSingle();
+
     try {
       await supabase.from('notifications').insert({
         user_id: targetUserId,
@@ -100,6 +112,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         is_read: false,
       });
     } catch {}
+
+    if (inviteeProfile?.email) {
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+        const editorLink = `${baseUrl}/dashboard/collaboration`;
+        await sendCollaborationInviteEmail({
+          to: inviteeProfile.email,
+          inviteeName: inviteeProfile.name || undefined,
+          inviterName: inviterProfile?.name || inviterProfile?.email || 'A collaborator',
+          postTitle: post?.title || 'Untitled draft',
+          editorLink,
+        });
+      } catch (mailError) {
+        console.warn('Failed to send collaboration invite email:', mailError);
+      }
+    }
 
     return NextResponse.json({ collaborator: data, message: 'Invitation sent' }, { status: 201 });
   } catch (error) {

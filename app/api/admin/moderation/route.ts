@@ -412,6 +412,40 @@ export async function POST(request: NextRequest) {
           success: true 
         }, { status: 200 });
       }
+    } else if (itemType === 'review') {
+      if (action === 'approve') {
+        const { error } = await supabase
+          .from('post_reviews')
+          .update({
+            is_approved: true,
+            approved_at: new Date().toISOString(),
+            approved_by: approvedBy,
+          })
+          .eq('id', itemId);
+
+        if (error) {
+          return NextResponse.json({ error: error.message }, { status: 400 });
+        }
+
+        return NextResponse.json({
+          message: 'Review approved successfully',
+          success: true,
+        }, { status: 200 });
+      } else if (action === 'reject') {
+        const { error } = await supabase
+          .from('post_reviews')
+          .delete()
+          .eq('id', itemId);
+
+        if (error) {
+          return NextResponse.json({ error: error.message }, { status: 400 });
+        }
+
+        return NextResponse.json({
+          message: 'Review rejected and deleted',
+          success: true,
+        }, { status: 200 });
+      }
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

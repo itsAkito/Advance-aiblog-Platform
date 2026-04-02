@@ -85,6 +85,19 @@ export async function POST(request: NextRequest) {
 
     let profile = existingProfileLookup.data;
 
+    if (profile && providedName?.trim() && profile.name !== providedName.trim()) {
+      const { data: updatedProfile } = await supabase
+        .from('profiles')
+        .update({ name: providedName.trim() })
+        .eq('id', profile.id)
+        .select('id, email, name, role, avatar_url')
+        .maybeSingle();
+
+      if (updatedProfile) {
+        profile = updatedProfile;
+      }
+    }
+
     // Only upsert a new profile row when no existing profile was found for this email.
     if (!profile) {
       let profileResult = await supabase

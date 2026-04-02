@@ -586,7 +586,8 @@ export async function GET(request: NextRequest) {
       .order('posted_at', { ascending: false });
 
     if (location) {
-      query = query.ilike('location', `%${location}%`);
+      const safeLocation = location.replace(/[,.()'"\\ ]/g, ' ').trim();
+      if (safeLocation) query = query.ilike('location', `%${safeLocation}%`);
     }
 
     if (jobType) {
@@ -598,7 +599,10 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      query = query.or(`title.ilike.%${search}%,company_name.ilike.%${search}%,description.ilike.%${search}%`);
+      const safe = search.replace(/[,.()'"\\ ]/g, ' ').trim();
+      if (safe) {
+        query = query.or(`title.ilike.%${safe}%,company_name.ilike.%${safe}%,description.ilike.%${safe}%`);
+      }
     }
 
     // Apply limit/offset if specified

@@ -20,7 +20,7 @@ export default function AnalyticsPage() {
     if (user && !isAdmin) {
       router.push("/dashboard");
     }
-  }, [user, isAdmin, router]);
+  }, [user, isAdmin, loading, router]);
   const [timeRange, setTimeRange] = useState("30d");
   const [platformStats, setPlatformStats] = useState({
     totalViews: 0,

@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { auth } from '@clerk/nextjs/server';
 
+function isMissingTableError(error: unknown): boolean {
+  const code = typeof error === 'object' && error !== null ? (error as { code?: string }).code : undefined;
+  const message = typeof error === 'object' && error !== null ? (error as { message?: string }).message : undefined;
+  return code === 'PGRST205' || (typeof message === 'string' && message.includes('Could not find the table'));
+}
+
+function isMissingPaymentColumnError(error: unknown): boolean {
+  const message = typeof error === 'object' && error !== null ? String((error as { message?: string }).message || '').toLowerCase() : '';
+  return message.includes('payment_method') || message.includes('payment_provider') || message.includes('payment_order_id') || message.includes('payment_transaction_id');
+}
+
 async function resolveAuthenticatedUserId(request: NextRequest) {
   try {
     const clerkAuth = await auth();
@@ -47,11 +58,18 @@ export async function GET(request: NextRequest) {
         .order('price_monthly', { ascending: true });
 
       if (error) {
-        // If table doesn't exist, return empty plans
+        // If table doesn't exist, return empty plans for graceful fallback.
         return NextResponse.json({ plans: [] });
       }
 
-      return NextResponse.json({ plans: data || [] });
+      return NextResponse.json(
+        { plans: data || [] },
+        {
+          headers: {
+            'Cache-Control': 'public, max-age=60, stale-while-revalidate=120',
+          },
+        }
+      );
     }
 
     // For non-plansOnly requests, get user's subscription (may require auth)
@@ -72,6 +90,9 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (subError && subError.code !== 'PGRST116') {
+      if (isMissingTableError(subError)) {
+        return NextResponse.json({ subscription: null, currentPlan: null, availablePlans: [] });
+      }
       return NextResponse.json({ error: subError.message }, { status: 400 });
     }
 
@@ -112,7 +133,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { planId, billingCycle } = body; // billingCycle: 'monthly' or 'annual'
+    const { planId, billingCycle, paymentMethod, paymentProvider, paymentOrderId, paymentTransactionId } = body; // billingCycle: 'monthly' or 'annual'
 
     if (!planId) {
       return NextResponse.json({ error: 'Plan ID is required' }, { status: 400 });
@@ -121,6 +142,9 @@ export async function POST(request: NextRequest) {
     if (billingCycle !== 'monthly' && billingCycle !== 'annual') {
       return NextResponse.json({ error: 'billingCycle must be monthly or annual' }, { status: 400 });
     }
+
+    const resolvedPaymentMethod = typeof paymentMethod === 'string' ? paymentMethod : 'manual';
+    const resolvedPaymentProvider = typeof paymentProvider === 'string' ? paymentProvider : (resolvedPaymentMethod === 'razorpay' ? 'razorpay' : null);
 
     const supabase = await createClient();
 
@@ -132,6 +156,12 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (planError) {
+      if (isMissingTableError(planError)) {
+        return NextResponse.json(
+          { error: 'Subscription schema is missing. Run latest Supabase migrations.' },
+          { status: 503 }
+        );
+      }
       return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
     }
 
@@ -151,17 +181,42 @@ export async function POST(request: NextRequest) {
 
     if (existing) {
       // Update existing subscription
-      const { data, error } = await supabase
+      const updatePayload = {
+        plan_id: planId,
+        status: 'active',
+        ends_at: endsAt.toISOString(),
+        updated_at: new Date().toISOString(),
+        payment_method: resolvedPaymentMethod,
+        payment_provider: resolvedPaymentProvider,
+        payment_order_id: typeof paymentOrderId === 'string' ? paymentOrderId : null,
+        payment_transaction_id: typeof paymentTransactionId === 'string' ? paymentTransactionId : null,
+      } as Record<string, any>;
+
+      let updateResult = await supabase
         .from('user_subscriptions')
-        .update({
+        .update(updatePayload)
+        .eq('id', existing.id)
+        .select('*, subscription_plans(*)')
+        .single();
+
+      if (updateResult.error && isMissingPaymentColumnError(updateResult.error)) {
+        const fallbackPayload = {
           plan_id: planId,
           status: 'active',
           ends_at: endsAt.toISOString(),
           updated_at: new Date().toISOString(),
-        })
-        .eq('id', existing.id)
-        .select('*, subscription_plans(*)')
-        .single();
+        };
+
+        updateResult = await supabase
+          .from('user_subscriptions')
+          .update(fallbackPayload)
+          .eq('id', existing.id)
+          .select('*, subscription_plans(*)')
+          .single();
+      }
+
+      const data = updateResult.data;
+      const error = updateResult.error;
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 400 });
@@ -171,21 +226,50 @@ export async function POST(request: NextRequest) {
     }
 
     // Create new subscription
-    const { data, error } = await supabase
+    const insertPayload = {
+      user_id: userId,
+      plan_id: planId,
+      status: 'active',
+      ends_at: endsAt.toISOString(),
+      started_at: new Date().toISOString(),
+      payment_method: resolvedPaymentMethod,
+      payment_provider: resolvedPaymentProvider,
+      payment_order_id: typeof paymentOrderId === 'string' ? paymentOrderId : null,
+      payment_transaction_id: typeof paymentTransactionId === 'string' ? paymentTransactionId : null,
+    } as Record<string, any>;
+
+    let insertResult = await supabase
       .from('user_subscriptions')
-      .insert([
-        {
-          user_id: userId,
-          plan_id: planId,
-          status: 'active',
-          ends_at: endsAt.toISOString(),
-          started_at: new Date().toISOString(),
-        },
-      ])
+      .insert([insertPayload])
       .select('*, subscription_plans(*)')
       .single();
 
+    if (insertResult.error && isMissingPaymentColumnError(insertResult.error)) {
+      const fallbackPayload = {
+        user_id: userId,
+        plan_id: planId,
+        status: 'active',
+        ends_at: endsAt.toISOString(),
+        started_at: new Date().toISOString(),
+      };
+
+      insertResult = await supabase
+        .from('user_subscriptions')
+        .insert([fallbackPayload])
+        .select('*, subscription_plans(*)')
+        .single();
+    }
+
+    const data = insertResult.data;
+    const error = insertResult.error;
+
     if (error) {
+      if (isMissingTableError(error)) {
+        return NextResponse.json(
+          { error: 'Subscription schema is missing. Run latest Supabase migrations.' },
+          { status: 503 }
+        );
+      }
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
@@ -219,6 +303,12 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (error) {
+      if (isMissingTableError(error)) {
+        return NextResponse.json(
+          { error: 'Subscription schema is missing. Run latest Supabase migrations.' },
+          { status: 503 }
+        );
+      }
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 

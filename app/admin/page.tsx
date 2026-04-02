@@ -62,6 +62,7 @@ export default function AdminPage() {
   const [topCreators, setTopCreators] = useState<TopCreator[]>([]);
   const [recentComments, setRecentComments] = useState<RecentComment[]>([]);
   const [logsLoading, setLogsLoading] = useState(true);
+  const [themeUsage, setThemeUsage] = useState<Array<{ theme: string; totalPosts: number; users: Array<{ id: string; name: string; avatar_url: string | null; postCount: number }> }>>([]);
   const [overview, setOverview] = useState<AdminOverview>({
     pendingPosts: 0,
     pendingComments: 0,
@@ -184,6 +185,16 @@ export default function AdminPage() {
           }));
 
         setRecentComments(recentCommentsFormatted);
+
+        // Fetch theme usage
+        try {
+          const themeRes = await fetch("/api/admin/theme-usage");
+          if (themeRes.ok) {
+            const themeData = await themeRes.json();
+            setThemeUsage(themeData.themes || []);
+          }
+        } catch { /* ignore */ }
+
         setLogsLoading(false);
       } catch (err) {
         console.error("Failed to fetch stats:", err);
@@ -407,6 +418,50 @@ export default function AdminPage() {
                   ))}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Theme Usage Tracking */}
+        <div className="mt-8">
+          <Card className="bg-white/4 backdrop-blur-xl border-white/10 shadow-xl shadow-black/20">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-bold font-headline flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">palette</span>
+                  Blog Theme Usage
+                </h3>
+                <Badge variant="outline" className="text-[10px]">{themeUsage.length} themes used</Badge>
+              </div>
+              {themeUsage.length === 0 ? (
+                <p className="text-sm text-on-surface-variant">No theme usage data yet.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {themeUsage.slice(0, 12).map((t) => (
+                    <div key={t.theme} className="p-4 border border-white/10 bg-white/3 hover:bg-white/5 transition-colors">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-sm font-bold text-on-surface truncate">{t.theme}</span>
+                        <Badge variant="outline" className="text-[10px] shrink-0 ml-2">{t.totalPosts} posts</Badge>
+                      </div>
+                      <div className="space-y-2">
+                        {t.users.slice(0, 3).map((u) => (
+                          <div key={u.id} className="flex items-center gap-2">
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage src={u.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.name}`} />
+                              <AvatarFallback className="text-[10px]">{u.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs text-on-surface-variant truncate flex-1">{u.name}</span>
+                            <span className="text-[10px] text-on-surface-variant">{u.postCount}×</span>
+                          </div>
+                        ))}
+                        {t.users.length > 3 && (
+                          <span className="text-[10px] text-on-surface-variant">+{t.users.length - 3} more users</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

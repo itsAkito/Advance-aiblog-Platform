@@ -16,10 +16,9 @@ export async function getAuthUserId(request?: NextRequest): Promise<string | nul
   if (request) {
     try {
       const sessionToken =
-        request.cookies.get('otp_session_token')?.value ||
-        request.cookies.get('otp_session')?.value;
+        request.cookies.get('otp_session_token')?.value;
 
-      if (sessionToken) {
+      if (sessionToken && sessionToken !== 'true') {
         const supabase = await createClient();
         const { data: session } = await supabase
           .from('otp_sessions')

@@ -2,12 +2,19 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Navbar from "@/components/NavBar";
 import Footer from "@/components/Footer";
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, any>) => {
+      open: () => void;
+    };
+  }
+}
 
 interface SubscriptionPlan {
   id: string;
@@ -32,6 +39,19 @@ function PricingPageContent() {
   const [currentSubscription, setCurrentSubscription] = useState<CurrentSubscription | null>(null);
   const [actionError, setActionError] = useState("");
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+
+  const loadRazorpayScript = async () => {
+    if (window.Razorpay) return true;
+
+    return new Promise<boolean>((resolve) => {
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
 
   const selectedPlanParam = searchParams.get("plan")?.toLowerCase() || "professional";
 
@@ -194,6 +214,86 @@ function PricingPageContent() {
 
     try {
       setActionLoading(tierId);
+
+      const isPaidPlan = Number((tier.price || "$0").replace("$", "")) > 0;
+
+      let paymentPayload: Record<string, any> = {};
+      if (isPaidPlan) {
+        const scriptLoaded = await loadRazorpayScript();
+        if (!scriptLoaded || !window.Razorpay) {
+          throw new Error("Unable to load Razorpay checkout. Please try again.");
+        }
+
+        const orderResponse = await fetch("/api/payments/razorpay/order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            planId: tier.planId,
+            billingCycle: isAnnual ? "annual" : "monthly",
+          }),
+        });
+
+        const orderData = await orderResponse.json();
+        if (!orderResponse.ok) {
+          throw new Error(orderData.error || "Failed to create payment order.");
+        }
+
+        const paymentResult = await new Promise<{
+          orderId: string;
+          paymentId: string;
+          signature: string;
+        }>((resolve, reject) => {
+          const RazorpayCtor = window.Razorpay;
+          if (!RazorpayCtor) {
+            reject(new Error("Razorpay checkout is unavailable."));
+            return;
+          }
+
+          const razorpay = new RazorpayCtor({
+            key: orderData.keyId,
+            amount: orderData.amount,
+            currency: orderData.currency,
+            name: "AiBlog",
+            description: `${tier.planName} plan (${isAnnual ? "Annual" : "Monthly"})`,
+            order_id: orderData.order.id,
+            prefill: {},
+            theme: { color: "#2563eb" },
+            handler: (response: any) => {
+              resolve({
+                orderId: response.razorpay_order_id,
+                paymentId: response.razorpay_payment_id,
+                signature: response.razorpay_signature,
+              });
+            },
+            modal: {
+              ondismiss: () => reject(new Error("Payment cancelled.")),
+            },
+          });
+
+          razorpay.open();
+        });
+
+        const verifyResponse = await fetch("/api/payments/razorpay/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(paymentResult),
+        });
+
+        const verifyData = await verifyResponse.json();
+        if (!verifyResponse.ok || !verifyData.valid) {
+          throw new Error(verifyData.error || "Payment verification failed.");
+        }
+
+        paymentPayload = {
+          paymentMethod: "razorpay",
+          paymentProvider: "razorpay",
+          paymentOrderId: paymentResult.orderId,
+          paymentTransactionId: paymentResult.paymentId,
+        };
+      }
+
       const response = await fetch("/api/subscriptions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -201,6 +301,7 @@ function PricingPageContent() {
         body: JSON.stringify({
           planId: tier.planId,
           billingCycle: isAnnual ? "annual" : "monthly",
+          ...paymentPayload,
         }),
       });
 
@@ -221,308 +322,203 @@ function PricingPageContent() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      {/* Header */}
-      <div className="pt-32 pb-16 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="text-xs uppercase tracking-widest text-blue-400 mb-4">
-            THE FUTURE OF CONTENT
-          </p>
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold font-headline tracking-tighter mb-6">
-            <span className="text-white">Elevate Your </span>
-            <span className="bg-linear-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
-              Narrative Authority
-            </span>
+
+      {/* ─── Hero ─── */}
+      <section className="relative overflow-hidden border-b border-white/5">
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(139,92,246,0.06) 30%, transparent 60%)' }} />
+        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 70% 20%, rgba(59,130,246,0.12), transparent 60%)' }} />
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-8 pt-32 pb-16 text-center">
+          <p className="text-[10px] uppercase tracking-[0.3em] text-primary/70 font-bold mb-3">Pricing Plans</p>
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold font-headline tracking-tighter mb-5 text-on-surface leading-[0.95]">
+            Elevate Your
+            <br />
+            <span className="bg-linear-to-r from-blue-400 via-violet-400 to-blue-500 bg-clip-text text-transparent">Editorial Authority</span>
           </h1>
-          <p className="text-lg text-zinc-400 mb-10 max-w-2xl mx-auto">
-            Join a new generation of digital architects leveraging artificial intelligence to craft premium editorial experiences.
+          <p className="text-on-surface-variant max-w-xl mx-auto mb-10 text-base">
+            AI-powered writing, 100+ themes, career tools, and community — choose the plan that fits your ambitions.
+          </p>
+
+          <p className="text-xs text-on-surface-variant/80 mb-4">
+            Payment methods: Razorpay (UPI, cards, netbanking) for paid plans.
           </p>
 
           {/* Billing Toggle */}
-          <div className="flex items-center justify-center gap-6 mb-16">
-            <span className={`text-sm font-medium ${!isAnnual ? "text-white" : "text-zinc-400"}`}>
-              MONTHLY
-            </span>
-            <button
-              onClick={() => setIsAnnual(!isAnnual)}
-              className={`relative w-16 h-8 rounded-full transition-colors ${
-                isAnnual ? "bg-blue-600" : "bg-zinc-700"
-              }`}
-            >
-              <div
-                className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-transform ${
-                  isAnnual ? "translate-x-9" : "translate-x-1"
-                }`}
-              />
+          <div className="inline-flex items-center gap-4 border border-white/10 bg-surface-container/50 backdrop-blur-sm px-5 py-2.5">
+            <span className={`text-xs font-bold uppercase tracking-wider transition-colors ${!isAnnual ? 'text-on-surface' : 'text-on-surface-variant/50'}`}>Monthly</span>
+            <button onClick={() => setIsAnnual(!isAnnual)} className={`relative w-12 h-6 transition-colors ${isAnnual ? 'bg-primary' : 'bg-surface-container-high'}`}>
+              <div className={`absolute top-0.5 w-5 h-5 bg-white transition-transform ${isAnnual ? 'translate-x-6' : 'translate-x-0.5'}`} />
             </button>
-            <div className="flex items-center gap-2">
-              <span className={`text-sm font-medium ${isAnnual ? "text-white" : "text-zinc-400"}`}>
-                ANNUAL
-              </span>
-              {isAnnual && (
-                <span className="inline-block px-3 py-1 bg-purple-600 text-white text-xs font-bold rounded-full">
-                  30% OFF
-                </span>
-              )}
-            </div>
+            <span className={`text-xs font-bold uppercase tracking-wider transition-colors ${isAnnual ? 'text-on-surface' : 'text-on-surface-variant/50'}`}>Annual</span>
+            {isAnnual && <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-400 px-2 py-0.5 border border-emerald-500/20">SAVE 25%</span>}
           </div>
 
           {actionError && (
-            <p className="mx-auto max-w-2xl rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-              {actionError}
-            </p>
+            <p className="mt-4 mx-auto max-w-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{actionError}</p>
           )}
         </div>
-      </div>
+      </section>
 
-      {/* Pricing Cards */}
-      <div className="px-4 sm:px-6 lg:px-8 pb-20">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+      {/* ─── Pricing Cards ─── */}
+      <section className="relative mt-0 px-4 sm:px-8 pb-20 pt-12">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-5">
           {tiersWithPlanIds.map((tier) => {
+            const isSelected = selectedTier === tier.id;
             const isCurrentPlan = currentSubscription?.plan_id === tier.planId;
             const displayPrice = isAnnual ? tier.annualPrice : tier.price;
-            const displayPeriod = isAnnual ? "/YR" : tier.period;
+            const displayPeriod = isAnnual ? "/yr" : tier.period;
 
             return (
-            <div
-              key={tier.id}
-              onClick={() => setSelectedTier(tier.id)}
-              className={`relative rounded-3xl overflow-hidden transition-all duration-300 cursor-pointer group border-2 ${
-                selectedTier === tier.id || tier.popular
-                  ? "md:scale-105 border-blue-500 bg-linear-to-br from-blue-950/40 via-background to-background shadow-2xl shadow-blue-500/20"
-                  : "border-zinc-700 bg-zinc-900/20 hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10"
-              }`}
-            >
-              {/* Badge */}
-              {tier.badge && (
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
-                  <span className="inline-block px-4 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-full border border-blue-400">
-                    {tier.badge}
-                  </span>
-                </div>
-              )}
+              <div
+                key={tier.id}
+                onClick={() => setSelectedTier(tier.id)}
+                className={`relative overflow-hidden transition-all cursor-pointer group border ${
+                  isSelected || tier.popular
+                    ? 'border-primary/40 bg-[linear-gradient(170deg,rgba(59,130,246,0.08),transparent_60%)] shadow-lg shadow-primary/10'
+                    : 'border-white/8 bg-surface-container/30 hover:border-white/15'
+                } ${tier.popular ? 'lg:-mt-4 lg:mb-4' : ''}`}
+              >
+                {/* Badge */}
+                {tier.badge && (
+                  <div className="bg-primary text-on-primary-fixed text-[10px] font-bold uppercase tracking-[0.2em] text-center py-1.5">{tier.badge}</div>
+                )}
+                {isSelected && !tier.badge && (
+                  <div className="bg-primary/20 text-primary text-[10px] font-bold uppercase tracking-[0.2em] text-center py-1.5">SELECTED</div>
+                )}
 
-              {/* Selection Indicator */}
-              {selectedTier === tier.id && !tier.badge && (
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
-                  <span className="inline-block px-4 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-full border border-blue-400">
-                    SELECTED
-                  </span>
-                </div>
-              )}
+                <div className="p-7">
+                  <h3 className="text-xl font-extrabold font-headline text-on-surface mb-1">{tier.name}</h3>
+                  <p className="text-xs text-on-surface-variant mb-6">{tier.description}</p>
 
-              <div className="p-8">
-                {/* Tier Name */}
-                <h3 className="text-2xl font-bold text-white mb-2 font-headline">{tier.name}</h3>
-                <p className="text-sm text-zinc-400 mb-8">{tier.description}</p>
+                  <div className="flex items-baseline gap-1 mb-6">
+                    <span className="text-4xl font-extrabold font-headline text-on-surface">{displayPrice}</span>
+                    <span className="text-xs text-on-surface-variant uppercase">{displayPeriod}</span>
+                  </div>
 
-                {/* Price */}
-                <div className="mb-8 pb-8 border-b border-zinc-700/50">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-5xl font-bold text-white font-headline">{displayPrice}</span>
-                    <span className="text-zinc-400 text-sm">{displayPeriod}</span>
+                  <Button
+                    type="button"
+                    onClick={(event) => { event.stopPropagation(); void handlePlanAction(tier.id); }}
+                    disabled={actionLoading === tier.id}
+                    className={`w-full mb-7 font-bold py-5 text-xs uppercase tracking-[0.15em] transition-all ${
+                      isSelected || tier.popular
+                        ? 'bg-primary text-on-primary-fixed hover:opacity-90'
+                        : 'bg-surface-container-high text-on-surface hover:bg-primary hover:text-on-primary-fixed'
+                    }`}
+                  >
+                    {actionLoading === tier.id ? 'Processing...' : isCurrentPlan ? 'Current Plan' : tier.cta}
+                  </Button>
+
+                  <div className="space-y-3">
+                    {tier.features.map((feature, idx) => (
+                      <div key={idx} className="flex items-start gap-2.5">
+                        <span className="material-symbols-outlined text-sm text-primary mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                        <span className="text-sm text-on-surface-variant">{feature}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-
-                {/* CTA Button */}
-                <Button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void handlePlanAction(tier.id);
-                  }}
-                  disabled={actionLoading === tier.id}
-                  className={`w-full mb-8 font-bold py-6 text-sm font-headline rounded-lg transition-all uppercase tracking-wider ${
-                    selectedTier === tier.id || tier.popular
-                      ? "bg-linear-to-r from-blue-500 to-blue-600 text-white hover:shadow-lg hover:shadow-blue-500/50"
-                      : "bg-zinc-700 text-white hover:bg-blue-600 hover:text-white"
-                  }`}
-                >
-                  {actionLoading === tier.id
-                    ? "PROCESSING..."
-                    : isCurrentPlan
-                    ? "OPEN PLAN"
-                    : tier.cta}
-                </Button>
-
-                {/* Features List */}
-                <div className="space-y-4">
-                  {tier.features.map((feature, featureIndex) => (
-                    <div key={featureIndex} className="flex items-start gap-3">
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-                        selectedTier === tier.id || tier.popular ? "bg-blue-500/30 border border-blue-400" : "border border-zinc-600"
-                      }`}>
-                        <Check className="w-3 h-3 text-blue-400" />
-                      </div>
-                      <span className="text-sm text-zinc-300">{feature}</span>
-                    </div>
-                  ))}
-                </div>
               </div>
-            </div>
             );
           })}
         </div>
-      </div>
+      </section>
 
-      {/* Compare Capabilities */}
-      <div className="px-4 sm:px-6 lg:px-8 py-20 bg-zinc-900/30 border-y border-zinc-800">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-bold text-white text-center mb-16 font-headline">
-            Compare Capabilities
-          </h2>
+      {/* ─── Compare Capabilities ─── */}
+      <section className="px-4 sm:px-8 py-20 border-t border-white/5 bg-[linear-gradient(180deg,rgba(59,130,246,0.03),transparent_50%)]">
+        <div className="max-w-5xl mx-auto">
+          <p className="text-[10px] uppercase tracking-[0.3em] text-primary/70 font-bold text-center mb-3">Feature Matrix</p>
+          <h2 className="text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface text-center mb-12">Compare Capabilities</h2>
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-700">
-                  <th className="text-left py-4 px-4 font-bold text-white text-xs uppercase tracking-wider">
-                    CATEGORY
-                  </th>
-                  <th className="text-center py-4 px-4 font-bold text-white text-xs uppercase tracking-wider">
-                    CONTRIBUTOR
-                  </th>
-                  <th className="text-center py-4 px-4 font-bold text-blue-400 text-xs uppercase tracking-wider">
-                    PROFESSIONAL
-                  </th>
-                  <th className="text-center py-4 px-4 font-bold text-white text-xs uppercase tracking-wider">
-                    LEADER
-                  </th>
+                <tr className="border-b border-white/10">
+                  <th className="text-left py-3 px-4 text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em]">Feature</th>
+                  <th className="text-center py-3 px-4 text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em]">Contributor</th>
+                  <th className="text-center py-3 px-4 text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Professional</th>
+                  <th className="text-center py-3 px-4 text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em]">Thought Leader</th>
                 </tr>
               </thead>
               <tbody>
                 {[
-                  { label: "CONTENT PRODUCTION", c: "3 swirling", p: "Unlimited", l: "Unlimited" },
-                  { label: "MEDIA STORAGE", c: "1GB", p: "5GB", l: "Enterprise" },
-                  { label: "AI CODE ENGINE", c: "Standard", p: "Advanced", l: "Ultra-Priority" },
-                  { label: "SEMANTIC SEO", c: false, p: true, l: true },
-                  { label: "CAREER DASHBOARD", c: false, p: true, l: true },
-                  { label: "REVENUE TOOLS", c: "—", p: "2% Fee", l: "5% Fee" },
+                  { label: "Monthly Posts", c: "3", p: "Unlimited", l: "Unlimited" },
+                  { label: "AI Writing Assistant", c: "Basic", p: "Advanced", l: "Priority Queue" },
+                  { label: "Blog Themes", c: "10 Built-in", p: "100+ Templates", l: "100+ + Custom" },
+                  { label: "Media Storage", c: "1 GB", p: "5 GB", l: "Enterprise" },
+                  { label: "Collaboration", c: false, p: true, l: true },
+                  { label: "Career Dashboard", c: false, p: true, l: true },
+                  { label: "Analytics", c: "Basic", p: "Full Dashboard", l: "Full + Export" },
+                  { label: "SEO Tools", c: false, p: true, l: true },
+                  { label: "Portfolio Builder", c: false, p: true, l: true },
+                  { label: "Resume Builder", c: false, p: true, l: true },
+                  { label: "Inner Circle Access", c: false, p: false, l: true },
+                  { label: "API Access", c: false, p: false, l: true },
+                  { label: "1-on-1 Mentoring", c: false, p: false, l: true },
                 ].map((row, idx) => (
-                  <tr key={idx} className="border-b border-zinc-800 hover:bg-zinc-800/30">
-                    <td className="py-4 px-4 font-semibold text-zinc-300">{row.label}</td>
-                    <td className="py-4 px-4 text-center text-zinc-400">
-                      {typeof row.c === "boolean" ? (
-                        row.c ? (
-                          <div className="flex justify-center">
-                            <div className="w-5 h-5 rounded-full bg-blue-500/20 border border-blue-400 flex items-center justify-center">
-                              <div className="w-2 h-2 bg-blue-400 rounded-full" />
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-zinc-600">—</span>
-                        )
-                      ) : (
-                        row.c
-                      )}
-                    </td>
-                    <td className="py-4 px-4 text-center text-zinc-100">
-                      {typeof row.p === "boolean" ? (
-                        row.p ? (
-                          <div className="flex justify-center">
-                            <div className="w-5 h-5 rounded-full bg-blue-500/20 border border-blue-400 flex items-center justify-center">
-                              <div className="w-2 h-2 bg-blue-400 rounded-full" />
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-zinc-600">—</span>
-                        )
-                      ) : (
-                        row.p
-                      )}
-                    </td>
-                    <td className="py-4 px-4 text-center text-zinc-400">
-                      {typeof row.l === "boolean" ? (
-                        row.l ? (
-                          <div className="flex justify-center">
-                            <div className="w-5 h-5 rounded-full bg-blue-500/20 border border-blue-400 flex items-center justify-center">
-                              <div className="w-2 h-2 bg-blue-400 rounded-full" />
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-zinc-600">—</span>
-                        )
-                      ) : (
-                        row.l
-                      )}
-                    </td>
+                  <tr key={idx} className="border-b border-white/5 hover:bg-white/2 transition-colors">
+                    <td className="py-3 px-4 text-sm text-on-surface font-medium">{row.label}</td>
+                    {[row.c, row.p, row.l].map((val, colIdx) => (
+                      <td key={colIdx} className={`py-3 px-4 text-center text-sm ${colIdx === 1 ? 'text-on-surface' : 'text-on-surface-variant'}`}>
+                        {typeof val === 'boolean' ? (
+                          val ? <span className="material-symbols-outlined text-primary text-base" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                            : <span className="text-on-surface-variant/30">—</span>
+                        ) : val}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* FAQ */}
-      <div className="px-4 sm:px-6 lg:px-8 py-20">
+      {/* ─── FAQ ─── */}
+      <section className="px-4 sm:px-8 py-20 border-t border-white/5">
         <div className="max-w-2xl mx-auto">
-          <h2 className="text-4xl font-bold text-white text-center mb-16 font-headline">
-            Frequently Asked
-          </h2>
+          <p className="text-[10px] uppercase tracking-[0.3em] text-primary/70 font-bold text-center mb-3">FAQ</p>
+          <h2 className="text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface text-center mb-12">Common Questions</h2>
 
-          <div className="space-y-6">
+          <div className="space-y-3">
             {[
-              {
-                q: "Can I switch plans later?",
-                a: "Yes, you can upgrade or downgrade your plan at any time. Changes are reflected immediately in your dashboard and next billing cycle.",
-              },
-              {
-                q: 'What is "Narrative Authority"?',
-                a: "It's our proprietary metric for measuring how much influence your AI-assisted content is getting within your specific niche or industry.",
-              },
-              {
-                q: "How does the 14-day trial work?",
-                a: "New customers can explore the full range of Professional features for 14 days. No credit card is required to start your journey.",
-              },
-              {
-                q: "Is the AI content uniquely mine?",
-                a: "Absolutely. All content generated via Aiblog's AI is 100% owned by you. We do not claim rights to your narrative or creative output.",
-              },
+              { q: "Can I switch plans anytime?", a: "Yes. Upgrade or downgrade at any time. Changes are reflected immediately in your dashboard and billing adjusts on the next cycle." },
+              { q: "Is there a free trial?", a: "New users can explore Professional features for 14 days at no cost. No credit card required." },
+              { q: "Do I own my AI-generated content?", a: "Absolutely. All content created on AiBlog is 100% owned by you. We never claim rights to your work." },
+              { q: "What happens if I cancel?", a: "Your content stays accessible. You&apos;ll revert to Contributor tier features but can export all your posts and data." },
+              { q: "Can teams share a plan?", a: "Team and enterprise plans with shared workspaces are coming soon. Contact us for early access." },
             ].map((item, idx) => (
-              <details
-                key={idx}
-                className="bg-zinc-800/30 border border-zinc-700 rounded-lg p-6 cursor-pointer hover:border-zinc-600 transition-colors group"
-              >
-                <summary className="font-bold text-white flex items-center justify-between">
+              <details key={idx} className="group border border-white/8 bg-surface-container/30 p-5 cursor-pointer hover:border-white/15 transition-colors">
+                <summary className="font-bold text-on-surface text-sm flex items-center justify-between">
                   {item.q}
-                  <span className="ml-4 text-blue-400 group-open:rotate-180 transition-transform">
-                    ↓
-                  </span>
+                  <span className="material-symbols-outlined text-primary text-base group-open:rotate-180 transition-transform">expand_more</span>
                 </summary>
-                <p className="text-zinc-400 mt-4">{item.a}</p>
+                <p className="text-sm text-on-surface-variant mt-3 leading-relaxed">{item.a}</p>
               </details>
             ))}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* CTA Section */}
-      <div className="px-4 sm:px-6 lg:px-8 py-20 bg-linear-to-b from-zinc-900/50 to-background border-t border-zinc-800">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-5xl font-bold text-white mb-6 font-headline">
-            The next era of editorial starts with you.
-          </h2>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+      {/* ─── CTA ─── */}
+      <section className="relative overflow-hidden border-t border-white/5">
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.06), rgba(139,92,246,0.04), transparent)' }} />
+        <div className="relative max-w-3xl mx-auto px-4 sm:px-8 py-20 text-center">
+          <h2 className="text-4xl sm:text-5xl font-extrabold font-headline tracking-tighter text-on-surface mb-4">Start Writing Today</h2>
+          <p className="text-on-surface-variant mb-8">No credit card required. Instant activation. Upgrade when you&apos;re ready.</p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button
               type="button"
               onClick={() => void handlePlanAction(selectedTier)}
-              className="px-8 py-6 text-base font-bold bg-linear-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:shadow-lg hover:shadow-blue-500/50 uppercase tracking-wider font-headline"
+              className="px-8 py-5 text-xs font-bold uppercase tracking-[0.15em] bg-primary text-on-primary-fixed hover:opacity-90"
             >
-              {actionLoading === selectedTier ? "PROCESSING..." : "START YOUR 14-DAY FREE TRIAL"}
+              {actionLoading === selectedTier ? 'Processing...' : 'Start Your Free Trial'}
             </Button>
-            <Button
-              asChild
-              variant="outline"
-              className="px-8 py-6 text-base font-bold border-zinc-600 text-white rounded-lg hover:bg-zinc-800/50 uppercase tracking-wider font-headline"
-            >
-              <Link href="/contact">SPEAK TO EDITORIAL TEAM</Link>
+            <Button asChild variant="outline" className="px-8 py-5 text-xs font-bold uppercase tracking-[0.15em] border-white/15 text-on-surface hover:bg-white/5">
+              <Link href="/contact">Contact Team</Link>
             </Button>
           </div>
-          <p className="text-sm text-zinc-500 mt-6">
-            NO CREDIT CARD REQUIRED · INSTANT ACTIVATION
-          </p>
         </div>
-      </div>
+      </section>
+
       <Footer />
     </div>
   );

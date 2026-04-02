@@ -221,7 +221,7 @@ export async function POST(request: NextRequest) {
           user_id: userId,
           type,
           title,
-          message,
+          message: message || title,
           related_user_id: relatedUserId,
           related_post_id: relatedPostId,
           is_read: false,

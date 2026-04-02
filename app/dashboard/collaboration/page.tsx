@@ -37,6 +37,7 @@ export default function CollaborationPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [permission, setPermission] = useState<'editor' | 'viewer'>('editor');
   const [loading, setLoading] = useState(true);
+  const [inviteMessage, setInviteMessage] = useState("");
   const [incomingInvites, setIncomingInvites] = useState<IncomingInvite[]>([]);
 
   useEffect(() => {
@@ -101,7 +102,7 @@ export default function CollaborationPage() {
     });
 
     if (!response.ok) {
-      alert('Failed to update invitation.');
+      setInviteMessage('Failed to update invitation.');
       return;
     }
 
@@ -110,6 +111,7 @@ export default function CollaborationPage() {
 
   const sendInvite = async () => {
     if (!activePostId || !inviteEmail.trim()) return;
+    setInviteMessage('');
     const response = await fetch(`/api/posts/${activePostId}/collaborators`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -117,11 +119,13 @@ export default function CollaborationPage() {
     });
 
     if (!response.ok) {
-      alert('Failed to send invite. Ensure the email belongs to a registered user.');
+      const data = await response.json().catch(() => ({}));
+      setInviteMessage(data.error || 'Failed to send invite. Ensure the email belongs to a registered user.');
       return;
     }
 
     setInviteEmail('');
+    setInviteMessage('Invite sent successfully.');
     const payload = await fetch(`/api/posts/${activePostId}/collaborators`).then((r) => r.json());
     setCollaborators(payload.collaborators || []);
   };
@@ -227,6 +231,9 @@ export default function CollaborationPage() {
                         Send Invite
                       </Button>
                     </div>
+                    {inviteMessage && (
+                      <p className={`text-xs px-3 py-2 border ${inviteMessage.includes('success') ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-red-500/30 bg-red-500/10 text-red-300'}`}>{inviteMessage}</p>
+                    )}
 
                     <div className="space-y-2">
                       {collaborators.length === 0 ? (

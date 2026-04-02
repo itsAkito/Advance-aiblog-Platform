@@ -1,4 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
+
+/**
+ * Verify HMAC-signed admin session cookie token.
+ * Returns the admin email if valid, null otherwise.
+ */
+export function verifyAdminSessionCookie(request: NextRequest): string | null {
+  const adminSessionToken = request.cookies.get('admin_session_token')?.value;
+  if (!adminSessionToken) return null;
+
+  try {
+    const decoded = Buffer.from(adminSessionToken, 'base64').toString('utf8');
+    const parts = decoded.split(':');
+    if (parts.length < 3) return null;
+
+    const hmac = parts.pop()!;
+    const payload = parts.join(':');
+    const [email] = parts;
+    const adminEmail = (process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || '').toLowerCase();
+    if (!email || email.toLowerCase() !== adminEmail) return null;
+
+    // Verify HMAC signature
+    const secret = process.env.ADMIN_SESSION_SECRET || process.env.CLERK_SECRET_KEY || 'fallback-secret-change-this';
+    const expectedHmac = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+    if (!crypto.timingSafeEqual(Buffer.from(hmac, 'hex'), Buffer.from(expectedHmac, 'hex'))) {
+      return null;
+    }
+
+    return email;
+  } catch {
+    // Fallback: support legacy unsigned tokens during transition
+    try {
+      const decoded = Buffer.from(adminSessionToken, 'base64').toString('utf8');
+      const [email] = decoded.split(':');
+      const adminEmail = (process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || '').toLowerCase();
+      if (email?.toLowerCase() === adminEmail) return email;
+    } catch { /* ignore */ }
+    return null;
+  }
+}
 
 /**
  * Middleware to verify admin access

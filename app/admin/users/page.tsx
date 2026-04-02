@@ -36,7 +36,7 @@ export default function UsersManagementPage() {
     if (user && !isAdmin) {
       router.push("/dashboard");
     }
-  }, [user, isAdmin, router]);
+  }, [user, isAdmin, loading, router]);
   const [formData, setFormData] = useState({ email: "", name: "", role: "creator" });
   const [stats, setStats] = useState<any>(null);
   const [search, setSearch] = useState("");

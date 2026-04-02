@@ -1,5 +1,5 @@
 ﻿"use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
@@ -88,6 +88,18 @@ export default function Home() {
   const [publicStats, setPublicStats] = useState<PublicStats | null>(null);
   const [totalPostCount, setTotalPostCount] = useState<number | null>(null);
 
+  const fetchFeaturedReview = useCallback(async () => {
+    try {
+      const res = await fetch("/api/community/reviews?limit=3", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        setRecentReviews(data.reviews || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch featured review:", err);
+    }
+  }, []);
+
   useEffect(() => {
     const fetchFeatured = async () => {
       try {
@@ -101,17 +113,6 @@ export default function Home() {
         }
       } catch (err) {
         console.error("Failed to fetch featured posts:", err);
-      }
-    };
-    const fetchFeaturedReview = async () => {
-      try {
-        const res = await fetch("/api/community/reviews?limit=3");
-        if (res.ok) {
-          const data = await res.json();
-          setRecentReviews(data.reviews || []);
-        }
-      } catch (err) {
-        console.error("Failed to fetch featured review:", err);
       }
     };
     const fetchPublicStats = async () => {
@@ -153,7 +154,25 @@ export default function Home() {
     fetchPublicStats();
     fetchResearchFeed();
     fetchForumTopics();
-  }, []);
+  }, [fetchFeaturedReview]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      void fetchFeaturedReview();
+    }, 30000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void fetchFeaturedReview();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [fetchFeaturedReview]);
 
   useEffect(() => setMounted(true), []);
 
@@ -539,48 +558,57 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Research Wire */}
+        {/* Blog Theme Showcase */}
         <section className="py-20 px-4 sm:px-8">
           <div className="max-w-7xl mx-auto reveal-on-scroll">
-            <div className="relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-[linear-gradient(125deg,rgba(5,15,33,0.94),rgba(7,35,64,0.78)_45%,rgba(20,54,72,0.65))] p-6 sm:p-8">
-              <div className="absolute -top-14 right-10 w-52 h-52 rounded-full bg-cyan-400/15 blur-3xl" />
-              <div className="absolute -bottom-16 left-10 w-56 h-56 rounded-full bg-emerald-400/10 blur-3xl" />
+            <div className="relative overflow-hidden border border-emerald-400/15 bg-[linear-gradient(135deg,rgba(5,20,12,0.95),rgba(8,38,22,0.85)_40%,rgba(12,30,35,0.78))]  p-6 sm:p-10">
+              <div className="absolute -top-20 right-8 w-64 h-64 rounded-full bg-emerald-400/8 blur-3xl" />
+              <div className="absolute -bottom-16 left-16 w-56 h-56 rounded-full bg-teal-400/6 blur-3xl" />
 
-              <div className="relative flex items-center justify-between gap-4 flex-wrap mb-7">
+              <div className="relative flex items-center justify-between gap-4 flex-wrap mb-8">
                 <div>
-                  <span className="text-[10px] font-bold tracking-[0.2em] text-cyan-200 uppercase block mb-2">Research Wire</span>
-                  <h2 className="text-3xl sm:text-4xl font-extrabold font-headline tracking-tighter text-white">Signal From Labs To Product Teams</h2>
-                  <p className="text-sm text-cyan-100/80 mt-2 max-w-2xl">
-                    Fresh AI and engineering research pulled from trusted sources so creators can publish with stronger evidence.
+                  <span className="text-[10px] font-bold tracking-[0.25em] text-emerald-300/90 uppercase block mb-2">Theme Gallery</span>
+                  <h2 className="text-3xl sm:text-4xl font-extrabold font-headline tracking-tighter text-white">200+ Blog Themes Across 15 Categories</h2>
+                  <p className="text-sm text-emerald-100/60 mt-2 max-w-2xl">
+                    Professional editorial palettes for every niche — from business to photography, code to culinary. Pick a theme and start writing instantly.
                   </p>
                 </div>
-                <Button asChild variant="outline" className="border-cyan-300/40 text-cyan-100 hover:bg-cyan-300/10">
-                  <Link href="/innovation">Open Innovation Feed</Link>
+                <Button asChild variant="outline" className="border-emerald-300/30 text-emerald-100 hover:bg-emerald-300/10">
+                  <Link href="/blog-themes">View All Themes →</Link>
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 relative">
-                {researchFeed.length > 0 ? (
-                  researchFeed.map((item) => (
-                    <Link
-                      key={item.id}
-                      href={`/innovation?tab=research&story=${encodeURIComponent(item.id)}`}
-                      className="group relative rounded-2xl border border-white/10 bg-white/4 p-4 hover:bg-white/8 hover:border-cyan-400/40 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-cyan-400/10 overflow-hidden block"
-                    >
-                      <div className="absolute inset-0 bg-linear-to-br from-cyan-500/8 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-cyan-400/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <Badge variant="outline" className="text-[10px] border-cyan-300/30 text-cyan-200">{item.category}</Badge>
-                        <span className="text-[10px] text-cyan-100/70">{new Date(item.publishedAt).toLocaleDateString()}</span>
-                      </div>
-                      <h3 className="text-sm font-bold text-white line-clamp-2">{item.title}</h3>
-                      <p className="text-xs text-cyan-100/75 line-clamp-3 mt-2">{item.summary}</p>
-                      <p className="text-[11px] text-cyan-200 mt-3 font-semibold">Source: {item.sourceName}</p>
-                    </Link>
-                  ))
-                ) : (
-                  <p className="text-sm text-cyan-100/70">Research feed is warming up. Check back in a moment.</p>
-                )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 relative">
+                {[
+                  { name: "Sahara Executive", cat: "Business", image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=400&h=500&fit=crop&q=80" },
+                  { name: "Neon Circuit", cat: "Technology", image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=400&h=340&fit=crop&q=80" },
+                  { name: "Cosmos", cat: "Science", image: "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=400&h=440&fit=crop&q=80" },
+                  { name: "Dark Gallery", cat: "Photography", image: "https://images.unsplash.com/photo-1452587925148-ce544e77e70d?w=400&h=360&fit=crop&q=80" },
+                  { name: "Dracula Code", cat: "Code Space", image: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=400&h=380&fit=crop&q=80" },
+                  { name: "Zen Garden", cat: "Wellness", image: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400&h=480&fit=crop&q=80" },
+                  { name: "Fire Kitchen", cat: "Culinary", image: "https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=400&h=340&fit=crop&q=80" },
+                  { name: "Compass", cat: "Travel", image: "https://images.unsplash.com/photo-1488085061387-422e29b40080?w=400&h=420&fit=crop&q=80" },
+                ].map((theme) => (
+                  <Link href="/blog-themes" key={theme.name} className="group relative block overflow-hidden border border-white/10 bg-black/30 hover:border-emerald-400/35 hover:bg-black/45 transition-all">
+                    <div className="h-44 overflow-hidden">
+                      <Image
+                        src={theme.image}
+                        alt={theme.name}
+                        width={400}
+                        height={440}
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      />
+                      <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/35 to-transparent" />
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                      <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-emerald-300/80 block mb-0.5">{theme.cat}</span>
+                      <span className="text-xs font-bold text-white leading-tight">{theme.name}</span>
+                    </div>
+                    <div className="border-t border-white/10 px-3 py-2 text-[11px] text-emerald-100/75 bg-black/45">
+                      Open this theme in editor
+                    </div>
+                  </Link>
+                ))}
               </div>
             </div>
           </div>
@@ -623,8 +651,16 @@ export default function Home() {
                 </Button>
               </div>
 
-              {/* Testimonial Card */}
-              <Card className="bg-surface-container-low/50 backdrop-blur border-outline-variant/10">
+              {/* Dynamic community review cards with curved/tilted layout */}
+              <Card
+                className="relative overflow-hidden bg-surface-container-low/55 backdrop-blur border-outline-variant/10"
+                style={{
+                  borderRadius: "56% 44% 52% 48% / 26% 32% 68% 74%",
+                  transform: "rotate(-1.4deg)",
+                }}
+              >
+                <div className="absolute -top-8 right-6 h-28 w-28 rounded-full bg-emerald-400/10 blur-2xl" />
+                <div className="absolute -bottom-10 left-6 h-28 w-28 rounded-full bg-blue-400/10 blur-2xl" />
                 <CardContent className="p-8">
                   <div className="flex items-center gap-4 mb-6">
                     <Avatar className="h-16 w-16 rounded-lg">
@@ -641,19 +677,25 @@ export default function Home() {
                   </blockquote>
                   <Separator className="mb-4" />
                   <div className="flex justify-between items-center text-[10px] uppercase tracking-wider text-on-surface-variant">
-                    <span>Member Since 2022</span>
-                    <Badge variant="outline" className="text-green-400 border-green-400/30">
-                      <span className="w-2 h-2 bg-green-400 rounded-full mr-1"></span>
-                      Verified Mentor
+                    <span>Reviewed {recentReviews[0]?.created_at ? new Date(recentReviews[0].created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}</span>
+                    <Badge variant="outline" className="text-amber-300 border-amber-400/30">
+                      {"★".repeat(Math.max(1, Math.min(5, recentReviews[0]?.rating || 5)))}
                     </Badge>
                   </div>
                 </CardContent>
               </Card>
 
               {recentReviews.length > 1 && (
-                <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-5">
                   {recentReviews.slice(1, 3).map((review) => (
-                    <Card key={review.id} className="bg-surface-container-low/40 border-outline-variant/10">
+                    <Card
+                      key={review.id}
+                      className="bg-surface-container-low/45 border-outline-variant/10 transition-transform"
+                      style={{
+                        borderRadius: "22% 78% 30% 70% / 63% 31% 69% 37%",
+                        transform: review.id === recentReviews[1]?.id ? "rotate(1.6deg)" : "rotate(-1.1deg)",
+                      }}
+                    >
                       <CardContent className="p-5">
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-xs font-semibold text-white">{review.author?.name || 'Community Member'}</p>
@@ -675,7 +717,7 @@ export default function Home() {
         </section>
 
         {/* Newsletter Section */}
-        <section className="py-20 sm:py-28 px-4 sm:px-8 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_45%),linear-gradient(165deg,rgba(59,130,246,0.08),rgba(0,0,0,0))]">
+        <section id="newsletter" className="py-20 sm:py-28 px-4 sm:px-8 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_45%),linear-gradient(165deg,rgba(59,130,246,0.08),rgba(0,0,0,0))]">
           <div className="max-w-3xl mx-auto text-center reveal-on-scroll">
             <span className="text-[10px] font-bold tracking-[0.2em] text-on-surface-variant uppercase block mb-4">Stay Informed</span>
             <h2 className="text-4xl sm:text-5xl font-extrabold font-headline tracking-tighter mb-4">

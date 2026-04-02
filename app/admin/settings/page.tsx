@@ -19,7 +19,7 @@ export default function AdminSettingsPage() {
     if (user && !isAdmin) {
       router.push("/dashboard");
     }
-  }, [user, isAdmin, router]);
+  }, [user, isAdmin, loading, router]);
   const [activeSection, setActiveSection] = useState("general");
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [registrationOpen, setRegistrationOpen] = useState(true);

@@ -78,6 +78,7 @@ function AuthContent() {
       const response = await fetch("/api/auth/otp/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ email: otpEmail, name: otpName }),
       });
 
@@ -107,6 +108,7 @@ function AuthContent() {
       const response = await fetch("/api/auth/otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ email: otpEmail, code: otpCode, name: otpName }),
       });
 
@@ -171,7 +173,7 @@ function AuthContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email: otpEmail, password }),
+        body: JSON.stringify({ email: otpEmail, password: password }),
       });
 
       const data = await response.json();

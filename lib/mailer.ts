@@ -49,4 +49,41 @@ export async function sendWelcomeEmail(to: string, name?: string) {
   });
 }
 
+export async function sendCollaborationInviteEmail(input: {
+  to: string;
+  inviteeName?: string;
+  inviterName: string;
+  postTitle: string;
+  editorLink: string;
+}) {
+  const { to, inviteeName, inviterName, postTitle, editorLink } = input;
+  const displayName = inviteeName || 'there';
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM || `AiBlog <${process.env.SMTP_USER}>`,
+    to,
+    subject: `Collaboration invite for "${postTitle}"`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 580px; margin: 0 auto; padding: 32px 20px; color: #d4d4d8; background: #09090b;">
+        <h1 style="font-size: 24px; margin: 0 0 8px; color: #fafafa;">AiBlog Collaboration Invite</h1>
+        <p style="margin: 0 0 20px; color: #a1a1aa; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase;">Work together on a draft</p>
+
+        <p style="font-size: 15px; line-height: 1.7; margin: 0 0 12px; color: #e4e4e7;">Hi ${displayName},</p>
+        <p style="font-size: 15px; line-height: 1.7; margin: 0 0 12px; color: #d4d4d8;">
+          <strong style="color:#fafafa;">${inviterName}</strong> invited you to collaborate on:
+        </p>
+        <p style="font-size: 18px; font-weight: 700; margin: 0 0 24px; color: #fafafa;">${postTitle}</p>
+
+        <a href="${editorLink}" style="display:inline-block; padding: 12px 20px; background:#2563eb; color:#ffffff; text-decoration:none; font-weight:700; border-radius:10px;">
+          Open Collaboration Invite
+        </a>
+
+        <p style="font-size: 13px; line-height: 1.6; margin-top: 24px; color: #a1a1aa;">
+          If you did not expect this invite, you can safely ignore this email.
+        </p>
+      </div>
+    `,
+  });
+}
+
 export { transporter };

@@ -1,12 +1,26 @@
 import React from "react";
 import { BlogTheme, getThemeById } from "@/lib/blog-themes";
 
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/on\w+\s*=\s*\S+/gi, '')
+    .replace(/javascript\s*:/gi, '')
+    .replace(/data\s*:/gi, 'data-blocked:')
+    .replace(/<iframe\b[^>]*>/gi, '')
+    .replace(/<object\b[^>]*>/gi, '')
+    .replace(/<embed\b[^>]*>/gi, '')
+    .replace(/<form\b[^>]*>/gi, '');
+}
+
 export function renderInlineMarkdown(text: string): string {
-  return text
+  const html = text
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
     .replace(/`(.+?)`/g, "<code>$1</code>")
     .replace(/\[(.+?)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  return sanitizeHtml(html);
 }
 
 function getBlockVariantClasses(theme: BlogTheme) {
@@ -60,7 +74,7 @@ function getInlineCodeHtml(text: string, theme: BlogTheme): string {
 }
 
 function renderThemedInlineMarkdown(text: string, theme: BlogTheme): string {
-  const linked = text
+  const linked = sanitizeHtml(text)
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
     .replace(/\[(.+?)\]\((https?:\/\/[^\s)]+)\)/g, `<a href="$2" target="_blank" rel="noopener noreferrer" style="color:${theme.palette.accent};text-decoration:underline;text-underline-offset:3px;">$1</a>`);
@@ -176,8 +190,23 @@ export function renderMarkdownBlocks(content: string, themeInput?: BlogTheme): R
     }
   };
 
+  let currentAlign: string | null = null;
+
   lines.forEach((line, index) => {
     const trimmed = line.trim();
+
+    // Handle <div align='...'> opening tags
+    const alignMatch = trimmed.match(/^<div\s+align=['"]?(left|center|right|justify)['"]?\s*>/i);
+    if (alignMatch) {
+      currentAlign = alignMatch[1].toLowerCase();
+      return;
+    }
+
+    // Handle </div> closing tags for alignment
+    if (trimmed === "</div>" && currentAlign) {
+      currentAlign = null;
+      return;
+    }
 
     if (trimmed.startsWith("```")) {
       if (codeFenceBuffer) {
@@ -241,7 +270,7 @@ export function renderMarkdownBlocks(content: string, themeInput?: BlogTheme): R
         <h3
           key={`h3-${index}`}
           className={`text-xl font-bold mt-8 mb-3 ${theme.fontClass}`}
-          style={{ color: theme.palette.heading }}
+          style={{ color: theme.palette.heading, textAlign: currentAlign as React.CSSProperties["textAlign"] || undefined }}
           dangerouslySetInnerHTML={{ __html: renderThemedInlineMarkdown(trimmed.replace(/^###\s+/, ""), theme) }}
         />
       );
@@ -253,7 +282,7 @@ export function renderMarkdownBlocks(content: string, themeInput?: BlogTheme): R
         <h2
           key={`h2-${index}`}
           className={`text-2xl font-bold mt-10 mb-4 ${theme.fontClass}`}
-          style={{ color: theme.palette.heading }}
+          style={{ color: theme.palette.heading, textAlign: currentAlign as React.CSSProperties["textAlign"] || undefined }}
           dangerouslySetInnerHTML={{ __html: renderThemedInlineMarkdown(trimmed.replace(/^##\s+/, ""), theme) }}
         />
       );
@@ -265,7 +294,7 @@ export function renderMarkdownBlocks(content: string, themeInput?: BlogTheme): R
         <h1
           key={`h1-${index}`}
           className={`text-3xl md:text-4xl font-bold mt-10 mb-5 ${theme.fontClass}`}
-          style={{ color: theme.palette.heading }}
+          style={{ color: theme.palette.heading, textAlign: currentAlign as React.CSSProperties["textAlign"] || undefined }}
           dangerouslySetInnerHTML={{ __html: renderThemedInlineMarkdown(trimmed.replace(/^#\s+/, ""), theme) }}
         />
       );
@@ -278,7 +307,7 @@ export function renderMarkdownBlocks(content: string, themeInput?: BlogTheme): R
         <blockquote
           key={`q-${index}`}
           className={`my-5 ${variant.quote}`}
-          style={{ color: theme.palette.text, backgroundColor: theme.palette.blockquoteBackground, borderColor: theme.palette.accent }}
+          style={{ color: theme.palette.text, backgroundColor: theme.palette.blockquoteBackground, borderColor: theme.palette.accent, textAlign: currentAlign as React.CSSProperties["textAlign"] || undefined }}
           dangerouslySetInnerHTML={{ __html: renderThemedInlineMarkdown(quoteContent, theme) }}
         />
       );
@@ -291,7 +320,7 @@ export function renderMarkdownBlocks(content: string, themeInput?: BlogTheme): R
     }
 
     blocks.push(
-      <p key={`p-${index}`} className={variant.paragraph} style={{ color: theme.palette.text }} dangerouslySetInnerHTML={{ __html: renderThemedInlineMarkdown(trimmed, theme) }} />
+      <p key={`p-${index}`} className={variant.paragraph} style={{ color: theme.palette.text, textAlign: currentAlign as React.CSSProperties["textAlign"] || undefined }} dangerouslySetInnerHTML={{ __html: renderThemedInlineMarkdown(trimmed, theme) }} />
     );
   });
 
