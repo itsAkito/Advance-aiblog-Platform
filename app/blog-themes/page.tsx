@@ -312,7 +312,7 @@ function BlogPreviewCard({ tmpl, categoryLabel, variant = "classic" }: { tmpl: B
           <h3 className="text-sm font-bold leading-tight" style={{ color: p.heading }}>{tmpl.sampleTitle || tmpl.name}</h3>
           <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: p.text }}>{tmpl.sampleExcerpt || tmpl.description}</p>
           <div className="flex items-center gap-1">
-            {[...Array(5)].map((_, i) => <div key={i} className="w-1" style={{ height: `${8 + Math.random() * 10}px`, backgroundColor: p.accent, opacity: 0.4 + Math.random() * 0.6 }} />)}
+            {[...Array(5)].map((_, i) => <div key={i} className="w-1" style={{ height: `${8 + [12, 16, 10, 18, 14][i]}px`, backgroundColor: p.accent, opacity: [0.6, 0.9, 0.5, 1, 0.7][i] }} />)}
             <span className="text-[9px] ml-2" style={{ color: p.muted }}>4:00</span>
           </div>
         </div>
@@ -547,6 +547,7 @@ export default function BlogThemesPage() {
                   {isAuthenticated && (
                     <button
                       onClick={() => setShowCreator((v) => !v)}
+                      suppressHydrationWarning
                       className="bg-primary text-on-primary-fixed px-5 py-2.5 text-sm font-bold hover:opacity-90 transition-opacity"
                     >
                       {showCreator ? "Close Creator" : "Create Custom Theme"}
@@ -594,6 +595,7 @@ export default function BlogThemesPage() {
             <div className="flex gap-2 overflow-x-auto scrollbar-none">
             <button
               onClick={() => setActiveCategory(null)}
+              suppressHydrationWarning
               className={`shrink-0 px-4 py-1.5 text-xs font-semibold transition-colors ${!activeCategory ? "bg-primary/15 text-primary border border-primary/30" : "border border-white/8 text-on-surface-variant hover:text-on-surface hover:border-white/20"}`}
             >
               All Themes
@@ -602,6 +604,7 @@ export default function BlogThemesPage() {
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
+                suppressHydrationWarning
                 className={`shrink-0 px-4 py-1.5 text-xs font-semibold transition-colors flex items-center gap-1.5 ${activeCategory === cat.id ? "bg-primary/15 text-primary border border-primary/30" : "border border-white/8 text-on-surface-variant hover:text-on-surface hover:border-white/20"}`}
               >
                 <span className="material-symbols-outlined text-sm">{cat.icon}</span>

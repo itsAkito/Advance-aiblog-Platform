@@ -116,9 +116,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
         return true;
       }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error("Error loading OTP session:", errorMsg);
+    } catch {
+      // Expected 401 when no OTP session exists — suppress console noise.
     }
     
     // Fallback for admin cookie session — probe the lightweight /api/admin/me endpoint.
@@ -142,7 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
     } catch {
-      // Ignore and continue to unauthenticated state.
+      // Expected 401 when no admin session exists — suppress console noise.
     }
 
     // If no OTP session found, just finish loading
