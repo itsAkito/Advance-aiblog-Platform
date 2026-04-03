@@ -103,7 +103,7 @@ export default function Home() {
   useEffect(() => {
     const fetchFeatured = async () => {
       try {
-        const res = await fetch("/api/posts?limit=3&published=true");
+        const res = await fetch("/api/posts?limit=3&published=true", { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
           const posts = data.posts || data || [];

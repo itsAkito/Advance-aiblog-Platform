@@ -105,7 +105,9 @@ export async function GET(
       liked_by_current_user: likedByCurrentUser,
     };
 
-    return NextResponse.json(postWithLiveCounts);
+    const response = NextResponse.json(postWithLiveCounts);
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
   } catch (error) {
     console.error('Get post error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

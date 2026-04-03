@@ -307,7 +307,7 @@ export async function GET(request: NextRequest) {
 
     const total = typeof count === 'number' ? Math.max(0, count) : orderedPosts.length;
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       posts: orderedPosts,
       total,
       warning: categoryFilterUnavailable
@@ -320,6 +320,8 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil(total / limit),
       },
     });
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
   } catch (error) {
     console.error('Get posts error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

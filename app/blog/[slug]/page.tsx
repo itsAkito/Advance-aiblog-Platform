@@ -77,7 +77,7 @@ export default function BlogPostPage() {
 
   const fetchPost = useCallback(async () => {
     try {
-      const res = await fetch(`/api/posts/${slug}`);
+      const res = await fetch(`/api/posts/${slug}`, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setPost(data);

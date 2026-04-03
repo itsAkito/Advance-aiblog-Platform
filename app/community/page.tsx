@@ -138,7 +138,7 @@ function CommunityContent() {
       try {
         const params = new URLSearchParams({ limit: "20", published: "true" });
         if (urlSearch) params.set("search", urlSearch);
-        const response = await fetch(`/api/posts?${params.toString()}`);
+        const response = await fetch(`/api/posts?${params.toString()}`, { cache: "no-store" });
         if (response.ok) {
           const data = await response.json();
           const posts = data.posts || data || [];
@@ -1053,9 +1053,15 @@ function CommunityContent() {
                               <span className="material-symbols-outlined text-[13px]">location_on</span>
                               {job.location}
                             </p>
-                            <a href={job.applyUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-secondary hover:text-secondary/80 transition-colors">
-                              Apply Now
-                            </a>
+                            {job.applyUrl && job.applyUrl !== '#' ? (
+                              <a href={job.applyUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-secondary hover:text-secondary/80 transition-colors">
+                                Apply Now
+                              </a>
+                            ) : (
+                              <Link href="/jobs" className="text-[10px] font-bold text-secondary hover:text-secondary/80 transition-colors">
+                                Apply Now
+                              </Link>
+                            )}
                           </div>
                         </div>
                       ))}

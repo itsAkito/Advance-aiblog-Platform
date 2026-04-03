@@ -53,8 +53,8 @@ export async function POST(
 
     // Get user info
     const { data: user } = await supabase
-      .from('users')
-      .select('id, name, email')
+      .from('profiles')
+      .select('id, name, avatar_url')
       .eq('id', userId)
       .single();
 
@@ -96,7 +96,7 @@ export async function GET(
         likes_count,
         created_at,
         user_id,
-        users!inner(id, name, email)
+        profiles!inner(id, name, avatar_url)
       `
       )
       .eq('blog_draft_id', blogId)
