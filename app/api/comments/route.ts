@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getAuthUserId } from '@/lib/auth-helpers';
 import { logActivity } from '@/lib/activity-log';
+import { sanitizeComment, sanitizeText } from '@/lib/sanitize';
 
 function isMissingColumnError(error: any, columnName: string): boolean {
   const message = String(error?.message || '').toLowerCase();
@@ -138,8 +139,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'communityPostId must be a string' }, { status: 400 });
     }
 
-    // Sanitize content
-    const sanitizedContent = content.trim().substring(0, 5000);
+    // Sanitize content — strip dangerous HTML, limit to 5000 chars
+    const sanitizedContent = sanitizeComment(content.trim()).substring(0, 5000);
+    const sanitizedGuestName = guestName ? sanitizeText(guestName, 100) : undefined;
 
     let supabase;
     try {
@@ -165,7 +167,7 @@ export async function POST(request: NextRequest) {
     const commentData: Record<string, unknown> = {
       content: sanitizedContent,
       user_id: userId || null,
-      guest_name: userId ? null : guestName?.trim().substring(0, 100),
+      guest_name: userId ? null : sanitizedGuestName || null,
       guest_email: userId ? null : guestEmail?.trim().substring(0, 200),
     };
 

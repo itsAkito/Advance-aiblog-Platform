@@ -332,7 +332,7 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
     const body = await request.json();
-    const { title, content, excerpt, image_url, cover_image_url, published, ai_generated, aiGenerated, topic, category, status, blog_theme } = body;
+    const { title, content, excerpt, image_url, cover_image_url, published, ai_generated, aiGenerated, topic, category, status, blog_theme, scheduled_for } = body;
 
     // Get user ID from authenticated session (Clerk or OTP)
     const userId = await getAuthUserId(request);
@@ -359,7 +359,10 @@ export async function POST(request: NextRequest) {
       isAdminCreator = creatorProfile?.role === 'admin';
     }
 
-    const resolvedStatus = published ? 'published' : (status || 'draft');
+    // If scheduled_for is set, force status to 'scheduled' 
+    const scheduledDate = scheduled_for ? new Date(scheduled_for) : null;
+    const isScheduled = scheduledDate && scheduledDate > new Date();
+    const resolvedStatus = isScheduled ? 'scheduled' : (published ? 'published' : (status || 'draft'));
     const resolvedApproval = isAdminCreator
       ? (resolvedStatus === 'published' ? 'approved' : 'pending')
       : 'pending';
@@ -385,6 +388,7 @@ export async function POST(request: NextRequest) {
         topic: topic || null,
         category: category || null,
         blog_theme: blog_theme || 'default',
+        scheduled_for: scheduledDate?.toISOString() ?? null,
       }])
       .select()
       .single();

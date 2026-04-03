@@ -31,6 +31,7 @@ export default function SideNavBar({ activePage = "home" }: SideNavBarProps) {
   ];
 
   return (
+    <>
     <aside className="hidden lg:flex h-screen w-64 fixed left-0 top-0 border-r border-white/5 bg-[#0e0e0e] flex-col pt-20 pb-8 z-40">
       {/* User Profile */}
       <div className="px-6 mb-6">
@@ -85,5 +86,24 @@ export default function SideNavBar({ activePage = "home" }: SideNavBarProps) {
         </Button>
       </div>
     </aside>
+
+    {/* Mobile bottom tab bar — visible only below lg */}
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0e0e0e]/95 backdrop-blur-xl border-t border-white/5 flex items-center justify-around px-2 py-1 safe-bottom">
+      {navItems.slice(0, 5).map((item) => (
+        <Link
+          key={item.id}
+          href={item.href}
+          className={`flex flex-col items-center gap-0.5 px-2 py-2 rounded-lg transition-colors min-w-[3rem] ${
+            activePage === item.id
+              ? "text-primary"
+              : "text-zinc-500 hover:text-zinc-200"
+          }`}
+        >
+          <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: activePage === item.id ? "'FILL' 1" : "'FILL' 0" }}>{item.icon}</span>
+          <span className="text-[9px] font-semibold uppercase tracking-wide leading-none">{item.label.split(" ")[0]}</span>
+        </Link>
+      ))}
+    </nav>
+    </>
   );
 }

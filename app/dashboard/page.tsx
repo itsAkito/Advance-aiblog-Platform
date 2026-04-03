@@ -101,7 +101,7 @@ export default function DashboardPage() {
       <Navbar />
       <div className="flex min-h-screen" style={{background: "radial-gradient(ellipse 70% 45% at 15% 5%, rgba(99,102,241,0.1) 0%, transparent 55%), radial-gradient(ellipse 60% 40% at 85% 90%, rgba(16,185,129,0.08) 0%, transparent 55%), hsl(var(--background))"}}>
         <SideNavBar activePage="home" />
-        <main className="flex-1 lg:ml-64 pt-24 pb-12 px-4 sm:px-8">
+        <main className="flex-1 lg:ml-64 pt-24 pb-24 lg:pb-12 px-4 sm:px-8">
           <div className="max-w-6xl mx-auto">
             {/* Header */}
             <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">

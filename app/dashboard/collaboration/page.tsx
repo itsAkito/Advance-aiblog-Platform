@@ -135,7 +135,7 @@ export default function CollaborationPage() {
       <Navbar />
       <div className="flex min-h-screen bg-background">
         <SideNavBar activePage="collaboration" />
-        <main className="flex-1 lg:ml-64 pt-24 pb-12 px-4 sm:px-8">
+        <main className="flex-1 lg:ml-64 pt-24 pb-24 lg:pb-12 px-4 sm:px-8">
           <div className="max-w-6xl mx-auto">
             <header className="mb-8">
               <h1 className="font-headline text-4xl font-extrabold tracking-tight text-on-surface">Collaborative Drafts</h1>

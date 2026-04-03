@@ -8,6 +8,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import NotificationsDropdown from "@/components/NotificationsDropdown";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -227,6 +228,7 @@ export default function Navbar() {
                 <Link href="/auth?next=%2Fpricing">Get Started</Link>
               </Button>
             )}
+            <div className="hidden md:block"><LanguageSwitcher /></div>
             <Button variant="ghost" size="icon" className="md:hidden text-zinc-400" onClick={() => setMenuOpen(!menuOpen)}>
               <span className="material-symbols-outlined">menu</span>
             </Button>
@@ -275,6 +277,10 @@ export default function Navbar() {
             {!isAuthenticated && mounted && (
               <Link href="/auth" className="block text-sm text-primary font-semibold px-2 py-2" onClick={() => setMenuOpen(false)}>Login / Sign Up</Link>
             )}
+
+            <div className="px-2 pt-1">
+              <LanguageSwitcher />
+            </div>
 
             {isAuthenticated && mounted && isAdmin && (
               <Link href="/admin" className="block text-sm text-zinc-300 hover:text-white rounded-lg px-2 py-2 hover:bg-white/5" onClick={() => setMenuOpen(false)}>Admin</Link>

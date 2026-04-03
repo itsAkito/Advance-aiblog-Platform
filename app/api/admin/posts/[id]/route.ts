@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@/utils/supabase/server';
 import { logActivity } from '@/lib/activity-log';
+import { logAdminAction } from '@/lib/admin-audit';
 
 function isMissingColumnError(error: unknown, column: string): boolean {
   const code = typeof error === 'object' && error !== null ? (error as { code?: string }).code : undefined;
@@ -111,9 +112,15 @@ export async function DELETE(
       activityType: 'admin_post_deleted',
       entityType: 'post',
       entityId: id,
-      metadata: {
-        title: existingPost.title,
-      },
+      metadata: { title: existingPost.title },
+    });
+
+    await logAdminAction({
+      adminId: adminUserId,
+      action: 'post.delete',
+      resourceType: 'post',
+      resourceId: id,
+      details: { title: existingPost.title },
     });
 
     return NextResponse.json({
@@ -235,6 +242,25 @@ export async function PATCH(
         nextTitle: result.data.title,
         statusBefore: existingPost.status,
         statusAfter: result.data.status,
+        updatedFields: Object.keys(updateData),
+      },
+    });
+
+    const auditAction =
+      updateData.approval_status === 'approved'
+        ? 'post.approve'
+        : updateData.approval_status === 'reverted'
+        ? 'post.reject'
+        : 'post.delete'; // fallback — should never hit
+
+    await logAdminAction({
+      adminId: adminUserId,
+      action: updateData.approval_status ? auditAction : 'post.approve',
+      resourceType: 'post',
+      resourceId: id,
+      details: {
+        previousStatus: existingPost.status,
+        newStatus: result.data.status,
         updatedFields: Object.keys(updateData),
       },
     });

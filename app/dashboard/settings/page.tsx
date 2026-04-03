@@ -96,7 +96,7 @@ export default function SettingsPage() {
       <Navbar />
       <div className="flex min-h-screen bg-background">
         <SideNavBar activePage="settings" />
-        <main className="flex-1 lg:ml-64 pt-24 pb-12 px-8">
+        <main className="flex-1 lg:ml-64 pt-24 pb-24 lg:pb-12 px-8">
           <div className="max-w-5xl mx-auto">
             <header className="mb-10">
               <h1 className="font-headline text-5xl font-extrabold tracking-tighter text-on-surface">

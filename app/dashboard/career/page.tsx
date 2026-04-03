@@ -102,7 +102,7 @@ export default function CareerTrackPage() {
       <Navbar />
       <div className="flex min-h-screen bg-background">
         <SideNavBar activePage="career" />
-        <main className="flex-1 lg:ml-64 pt-24 pb-12 px-8">
+        <main className="flex-1 lg:ml-64 pt-24 pb-24 lg:pb-12 px-8">
           <div className="max-w-6xl mx-auto">
             {/* Header */}
             <header className="mb-10">

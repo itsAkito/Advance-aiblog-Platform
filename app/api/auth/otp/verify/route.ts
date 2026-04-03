@@ -192,6 +192,12 @@ export async function POST(request: NextRequest) {
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });
 
+    // Mark email as verified (OTP verification proves email ownership)
+    void supabase
+      .from('profiles')
+      .update({ email_verified: true, email_verified_at: new Date().toISOString() })
+      .eq('id', targetProfileId);
+
     // Prepare user object to send to client
     const userData = {
       id: profile?.id || targetProfileId,

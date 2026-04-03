@@ -1,4 +1,8 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
+import createNextIntlPlugin from "next-intl/plugin";
+
+const withNextIntl = createNextIntlPlugin('./i18n.ts');
 
 const nextConfig: NextConfig = {
   reactStrictMode: false, // disable to avoid double-render warnings that slow dev
@@ -47,4 +51,18 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(withNextIntl(nextConfig), {
+  // Sentry organization and project (set SENTRY_ORG, SENTRY_PROJECT in CI)
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  // Suppress source map upload logs during build
+  silent: true,
+  // Upload source maps in CI only (not in dev)
+  sourcemaps: {
+    disable: process.env.NODE_ENV !== 'production',
+  },
+  // Automatically tree-shake Sentry logger
+  disableLogger: true,
+  // Tunnel Sentry events through your own domain to avoid ad-blockers
+  tunnelRoute: '/monitoring',
+});

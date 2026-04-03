@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { sendWelcomeEmail } from '@/lib/mailer';
+import { checkRateLimit, getRequestIdentifier, RATE_LIMITS } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
+  // Rate limit: 3 newsletter signups per 5 minutes per IP
+  const rateLimitResponse = await checkRateLimit(
+    request,
+    `newsletter:${getRequestIdentifier(request)}`,
+    RATE_LIMITS.NEWSLETTER
+  );
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const { email, name } = await request.json();
 

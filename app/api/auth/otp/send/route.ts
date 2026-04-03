@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import nodemailer from 'nodemailer';
 import { retryWithExponentialBackoff, isRateLimitError, isConfigError } from '@/lib/retry';
+import { checkRateLimit, getRequestIdentifier, RATE_LIMITS } from '@/lib/rate-limit';
 
 const createTransporter = () => nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -22,6 +23,14 @@ function isOtpDevTestMode(): boolean {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limit: 5 OTP sends per 5 minutes per IP
+  const rateLimitResponse = await checkRateLimit(
+    request,
+    `otp:send:${getRequestIdentifier(request)}`,
+    RATE_LIMITS.OTP_SEND
+  );
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const { email } = await request.json();
 

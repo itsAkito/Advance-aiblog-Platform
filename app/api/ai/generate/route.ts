@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateBlogContent, generateBlogTitle, generateBlogExcerpt, generateSyntheticInsight, getAIProviderStatus } from '@/lib/gemini';
 import { retryWithExponentialBackoff, isRateLimitError, isConfigError } from '@/lib/retry';
+import { checkRateLimit, getRequestIdentifier, RATE_LIMITS } from '@/lib/rate-limit';
 
 /**
  * Non-streaming blog generation endpoint
@@ -8,6 +9,14 @@ import { retryWithExponentialBackoff, isRateLimitError, isConfigError } from '@/
  * Use /api/ai/generate/stream for real-time streaming
  */
 export async function POST(_request: NextRequest) {
+  // Rate limit: 10 requests per minute per IP
+  const rateLimitResponse = await checkRateLimit(
+    _request,
+    `ai:generate:${getRequestIdentifier(_request)}`,
+    RATE_LIMITS.AI_GENERATE
+  );
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const { prompt, topic, tone = 'professional', userId, includeInsight = false } = await _request.json();
     const finalPrompt = prompt || topic;

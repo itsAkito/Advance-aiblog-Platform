@@ -496,7 +496,7 @@ export default function ResumePage() {
         <Navbar />
         <div className="flex">
           <SideNavBar />
-          <main className="flex-1 pb-24">
+          <main className="flex-1 pb-32 lg:pb-24">
             <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
 
               {/* Header */}

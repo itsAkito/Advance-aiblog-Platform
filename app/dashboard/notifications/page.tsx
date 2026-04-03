@@ -156,7 +156,7 @@ export default function DashboardNotificationsPage() {
       <Navbar />
       <div className="flex min-h-screen bg-background">
         <SideNavBar activePage="notifications" />
-        <main className="flex-1 lg:ml-64 pt-24 pb-12 px-4 sm:px-8">
+        <main className="flex-1 lg:ml-64 pt-24 pb-24 lg:pb-12 px-4 sm:px-8">
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-6">
               <div>

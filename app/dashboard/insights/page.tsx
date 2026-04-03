@@ -96,7 +96,7 @@ export default function InsightsPage() {
       <Navbar />
       <div className="flex min-h-screen bg-background">
         <SideNavBar activePage="insights" />
-        <main className="flex-1 lg:ml-64 pt-24 pb-12 px-4 sm:px-8">
+        <main className="flex-1 lg:ml-64 pt-24 pb-24 lg:pb-12 px-4 sm:px-8">
           <div className="max-w-7xl mx-auto">
             {/* Gradient Hero Header */}
             <div className="relative mb-10 overflow-hidden rounded-3xl border border-white/10">
