@@ -7,17 +7,344 @@ import Navbar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/context/AuthContext";
 import { BLOCK_VARIANTS, BlogTheme, FONT_OPTIONS, getThemeFromAny, sanitizeThemeConfig } from "@/lib/blog-themes";
-import { CATEGORY_STYLES, FEATURED_THEMES, EXPANDED_TEMPLATE_CATEGORIES, type BlockTemplate, type ThemeCreatorForm } from "@/lib/blog-theme-templates";
+import { CATEGORY_STYLES, FEATURED_THEMES, EXPANDED_TEMPLATE_CATEGORIES, type BlockTemplate, type ThemeCreatorForm, type CardVariant } from "@/lib/blog-theme-templates";
 /* ────────────────────────────────────────────────────────────
-   BlogPreviewCard — realistic mini blog article preview
+   BlogPreviewCard — renders distinct layouts per category
    ──────────────────────────────────────────────────────────── */
-function BlogPreviewCard({ tmpl, categoryLabel }: { tmpl: BlockTemplate; categoryLabel?: string }) {
+function BlogPreviewCard({ tmpl, categoryLabel, variant = "classic" }: { tmpl: BlockTemplate; categoryLabel?: string; variant?: CardVariant }) {
   const p = tmpl.preview;
   const editorLink = `/editor?templateTheme=${tmpl.id}&bg=${encodeURIComponent(p.bg)}&accent=${encodeURIComponent(p.accent)}&heading=${encodeURIComponent(p.heading)}&text=${encodeURIComponent(p.text)}&surface=${encodeURIComponent(p.surface)}&muted=${encodeURIComponent(p.muted)}&font=${encodeURIComponent(tmpl.font)}`;
 
+  /* ── Terminal card (technology, code-space) ── */
+  if (variant === "terminal") {
+    return (
+      <article className="border overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl group relative font-mono" style={{ backgroundColor: p.bg, borderColor: `${p.accent}30` }}>
+        <div className="flex items-center gap-1.5 px-3 py-2 border-b" style={{ backgroundColor: `${p.surface}`, borderColor: `${p.accent}20` }}>
+          <div className="flex gap-1">
+            <span className="w-2 h-2 rounded-full bg-red-500/70" />
+            <span className="w-2 h-2 rounded-full bg-yellow-500/70" />
+            <span className="w-2 h-2 rounded-full bg-green-500/70" />
+          </div>
+          <span className="text-[9px] ml-2 tracking-wider" style={{ color: p.accent, fontFamily: tmpl.font }}>~/blog/{tmpl.id}</span>
+        </div>
+        {tmpl.image && (
+          <div className="relative w-full h-28 overflow-hidden opacity-60">
+            <Image src={tmpl.image} alt={tmpl.name} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition-transform duration-500 group-hover:scale-105" />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, transparent 20%, ${p.bg})` }} />
+          </div>
+        )}
+        <div className="p-4 space-y-2" style={{ fontFamily: tmpl.font }}>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px]" style={{ color: p.accent }}>$</span>
+            <span className="text-[10px] uppercase tracking-[0.15em]" style={{ color: p.muted }}>{tmpl.tags[0]}</span>
+          </div>
+          <h3 className="text-sm font-bold leading-tight" style={{ color: p.accent }}>{tmpl.sampleTitle || tmpl.name}</h3>
+          <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: p.text }}>{tmpl.sampleExcerpt || tmpl.description}</p>
+          <div className="flex items-center gap-1 pt-1">
+            <span className="text-[9px]" style={{ color: p.accent }}>▋</span>
+            <span className="text-[9px]" style={{ color: p.muted }}>4 min read</span>
+          </div>
+        </div>
+        <div className="p-3 flex items-center gap-2 border-t relative z-20" style={{ borderColor: `${p.accent}20` }}>
+          <div className="flex gap-0.5 flex-1">{Object.values(p).map((c, i) => <div key={i} className="w-3 h-3 border" style={{ backgroundColor: c, borderColor: `${p.muted}20` }} />)}</div>
+          <Link href={editorLink} className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all opacity-0 group-hover:opacity-100" style={{ backgroundColor: p.accent, color: p.bg }}>Use Theme</Link>
+        </div>
+      </article>
+    );
+  }
+
+  /* ── Polaroid card (real-estate, photography) ── */
+  if (variant === "polaroid") {
+    return (
+      <article className="transition-all hover:-translate-y-1 hover:shadow-2xl group relative p-3" style={{ backgroundColor: "#f8f6f0", borderColor: `${p.muted}30` }}>
+        {tmpl.image && (
+          <div className="relative w-full h-44 overflow-hidden">
+            <Image src={tmpl.image} alt={tmpl.name} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition-transform duration-500 group-hover:scale-105" />
+          </div>
+        )}
+        <div className="pt-3 pb-1 space-y-1.5">
+          <h3 className="text-sm font-bold leading-tight text-gray-900" style={{ fontFamily: tmpl.font }}>{tmpl.sampleTitle || tmpl.name}</h3>
+          <p className="text-[11px] leading-relaxed line-clamp-2 text-gray-600" style={{ fontFamily: tmpl.font }}>{tmpl.sampleExcerpt || tmpl.description}</p>
+          {categoryLabel && <span className="inline-block text-[8px] tracking-wider uppercase px-1.5 py-0.5 mt-1" style={{ color: p.accent, backgroundColor: `${p.accent}15` }}>{categoryLabel}</span>}
+        </div>
+        <div className="flex items-center gap-2 pt-2 border-t border-gray-200 mt-2">
+          <div className="flex gap-0.5 flex-1">{Object.values(p).map((c, i) => <div key={i} className="w-3 h-3 rounded-full border border-gray-200" style={{ backgroundColor: c }} />)}</div>
+          <Link href={editorLink} className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all opacity-0 group-hover:opacity-100 rounded-full" style={{ backgroundColor: p.accent, color: "#fff" }}>Use</Link>
+        </div>
+      </article>
+    );
+  }
+
+  /* ── Glassmorphic card (science) ── */
+  if (variant === "glassmorphic") {
+    return (
+      <article className="border overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl group relative rounded-xl backdrop-blur-sm" style={{ backgroundColor: `${p.bg}cc`, borderColor: `${p.accent}25`, boxShadow: `0 4px 30px ${p.accent}10` }}>
+        {tmpl.image && (
+          <div className="relative w-full h-36 overflow-hidden">
+            <Image src={tmpl.image} alt={tmpl.name} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition-transform duration-500 group-hover:scale-105 opacity-80" />
+            <div className="absolute inset-0 backdrop-blur-[1px]" style={{ background: `linear-gradient(135deg, ${p.bg}90 0%, transparent 60%)` }} />
+            <div className="absolute top-3 left-3 px-2 py-0.5 rounded-full text-[8px] uppercase tracking-[0.2em] backdrop-blur-md" style={{ color: p.accent, backgroundColor: `${p.accent}15`, border: `1px solid ${p.accent}30` }}>{tmpl.tags[0]}</div>
+          </div>
+        )}
+        <div className="p-4 space-y-3" style={{ fontFamily: tmpl.font }}>
+          <h3 className="text-sm font-bold leading-tight" style={{ color: p.heading }}>{tmpl.sampleTitle || tmpl.name}</h3>
+          <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: p.text }}>{tmpl.sampleExcerpt || tmpl.description}</p>
+          <div className="flex items-center gap-2">
+            <div className="h-[1px] flex-1" style={{ background: `linear-gradient(to right, ${p.accent}60, transparent)` }} />
+            <span className="text-[9px]" style={{ color: p.muted }}>4 min</span>
+          </div>
+        </div>
+        <div className="p-3 flex items-center gap-2 border-t relative z-20" style={{ borderColor: `${p.accent}15` }}>
+          <div className="flex gap-1 flex-1">{Object.values(p).map((c, i) => <div key={i} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c, boxShadow: `0 0 6px ${c}40` }} />)}</div>
+          <Link href={editorLink} className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all opacity-0 group-hover:opacity-100 rounded-full" style={{ backgroundColor: `${p.accent}20`, color: p.accent, border: `1px solid ${p.accent}40` }}>Use Theme</Link>
+        </div>
+      </article>
+    );
+  }
+
+  /* ── Neon card (social-media) ── */
+  if (variant === "neon") {
+    return (
+      <article className="border-2 overflow-hidden transition-all hover:-translate-y-1 group relative rounded-2xl" style={{ backgroundColor: p.bg, borderColor: `${p.accent}40`, boxShadow: `0 0 20px ${p.accent}15, inset 0 0 20px ${p.accent}05` }}>
+        {tmpl.image && (
+          <div className="relative w-full h-32 overflow-hidden">
+            <Image src={tmpl.image} alt={tmpl.name} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition-transform duration-500 group-hover:scale-110 saturate-150" />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, ${p.bg}40 0%, ${p.bg} 100%)` }} />
+          </div>
+        )}
+        <div className="p-4 space-y-2" style={{ fontFamily: tmpl.font }}>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: p.accent, boxShadow: `0 0 8px ${p.accent}` }} />
+            <span className="text-[9px] uppercase tracking-[0.2em]" style={{ color: p.accent }}>{tmpl.tags[0]}</span>
+          </div>
+          <h3 className="text-base font-extrabold leading-tight" style={{ color: p.heading, fontFamily: tmpl.font }}>{tmpl.sampleTitle || tmpl.name}</h3>
+          <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: p.text }}>{tmpl.sampleExcerpt || tmpl.description}</p>
+        </div>
+        <div className="p-3 flex items-center gap-2 border-t relative z-20" style={{ borderColor: `${p.accent}25` }}>
+          <div className="flex gap-1 flex-1">{Object.values(p).map((c, i) => <div key={i} className="w-3 h-3 rounded-full" style={{ backgroundColor: c, boxShadow: `0 0 4px ${c}` }} />)}</div>
+          <Link href={editorLink} className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all opacity-0 group-hover:opacity-100 rounded-full" style={{ background: `linear-gradient(135deg, ${p.accent}, ${p.muted})`, color: p.bg }}>Use</Link>
+        </div>
+      </article>
+    );
+  }
+
+  /* ── Brutalist card (architecture) ── */
+  if (variant === "brutalist") {
+    return (
+      <article className="border-2 overflow-hidden transition-all hover:-translate-y-1 group relative" style={{ backgroundColor: p.bg, borderColor: p.heading }}>
+        <div className="px-4 py-2 border-b-2" style={{ borderColor: p.heading, backgroundColor: p.surface }}>
+          <span className="text-[10px] uppercase tracking-[0.3em] font-black" style={{ color: p.heading, fontFamily: tmpl.font }}>{tmpl.name}</span>
+        </div>
+        {tmpl.image && (
+          <div className="relative w-full h-32 overflow-hidden grayscale group-hover:grayscale-0 transition-all duration-500">
+            <Image src={tmpl.image} alt={tmpl.name} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover" />
+          </div>
+        )}
+        <div className="p-4 space-y-2" style={{ fontFamily: tmpl.font }}>
+          <h3 className="text-lg font-black uppercase leading-tight tracking-tight" style={{ color: p.heading }}>{tmpl.sampleTitle || tmpl.name}</h3>
+          <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: p.text }}>{tmpl.sampleExcerpt || tmpl.description}</p>
+          <div className="w-full h-0.5" style={{ backgroundColor: p.accent }} />
+        </div>
+        <div className="p-3 flex items-center gap-2 border-t-2 relative z-20" style={{ borderColor: p.heading }}>
+          <div className="flex gap-0.5 flex-1">{Object.values(p).map((c, i) => <div key={i} className="w-4 h-4" style={{ backgroundColor: c }} />)}</div>
+          <Link href={editorLink} className="px-3 py-1 text-[10px] font-black uppercase tracking-wider transition-all opacity-0 group-hover:opacity-100 border-2" style={{ borderColor: p.accent, color: p.accent }}>Use</Link>
+        </div>
+      </article>
+    );
+  }
+
+  /* ── Editorial card (typography) ── */
+  if (variant === "editorial") {
+    return (
+      <article className="overflow-hidden transition-all hover:-translate-y-1 group relative border-l-4" style={{ backgroundColor: p.bg, borderColor: p.accent }}>
+        <div className="p-5 space-y-3" style={{ fontFamily: tmpl.font }}>
+          <span className="text-[9px] uppercase tracking-[0.3em]" style={{ color: p.accent }}>{tmpl.tags[0]} — Jan 2025</span>
+          <h3 className="text-xl font-bold leading-tight italic" style={{ color: p.heading }}>{tmpl.sampleTitle || tmpl.name}</h3>
+          <p className="text-xs leading-relaxed line-clamp-3" style={{ color: p.text }}>{tmpl.sampleExcerpt || tmpl.description}</p>
+          <div className="flex items-center gap-3 pt-2">
+            <div className="w-8 h-[2px]" style={{ backgroundColor: p.accent }} />
+            <span className="text-[9px] italic" style={{ color: p.muted }}>4 min read</span>
+          </div>
+        </div>
+        {tmpl.image && (
+          <div className="relative w-full h-28 overflow-hidden">
+            <Image src={tmpl.image} alt={tmpl.name} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition-transform duration-500 group-hover:scale-105" />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${p.bg} 10%, transparent)` }} />
+          </div>
+        )}
+        <div className="px-5 py-3 flex items-center gap-2 relative z-20">
+          <div className="flex gap-0.5 flex-1">{Object.values(p).map((c, i) => <div key={i} className="w-3 h-3 border" style={{ backgroundColor: c, borderColor: `${p.muted}20` }} />)}</div>
+          <Link href={editorLink} className="px-3 py-1 text-[10px] font-semibold italic tracking-wider transition-all opacity-0 group-hover:opacity-100" style={{ color: p.accent }}>Use Theme →</Link>
+        </div>
+      </article>
+    );
+  }
+
+  /* ── Magazine card (health-wellness) ── */
+  if (variant === "magazine") {
+    return (
+      <article className="overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl group relative rounded-lg" style={{ backgroundColor: p.bg }}>
+        {tmpl.image && (
+          <div className="relative w-full h-44 overflow-hidden rounded-t-lg">
+            <Image src={tmpl.image} alt={tmpl.name} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition-transform duration-700 group-hover:scale-110" />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, transparent 50%, ${p.bg})` }} />
+            <div className="absolute bottom-3 left-3 right-3">
+              <h3 className="text-base font-bold leading-tight drop-shadow-lg" style={{ color: p.heading, fontFamily: tmpl.font }}>{tmpl.sampleTitle || tmpl.name}</h3>
+            </div>
+          </div>
+        )}
+        <div className="p-4 space-y-2" style={{ fontFamily: tmpl.font }}>
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 text-[8px] uppercase tracking-[0.2em] rounded-full" style={{ color: p.accent, backgroundColor: `${p.accent}15` }}>{tmpl.tags[0]}</span>
+            <span className="text-[9px]" style={{ color: p.muted }}>4 min read</span>
+          </div>
+          <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: p.text }}>{tmpl.sampleExcerpt || tmpl.description}</p>
+        </div>
+        <div className="p-3 flex items-center gap-2 border-t relative z-20 rounded-b-lg" style={{ borderColor: `${p.muted}15`, backgroundColor: p.surface }}>
+          <div className="flex gap-1 flex-1">{Object.values(p).map((c, i) => <div key={i} className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: c }} />)}</div>
+          <Link href={editorLink} className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all opacity-0 group-hover:opacity-100 rounded-full" style={{ backgroundColor: p.accent, color: p.bg }}>Use</Link>
+        </div>
+      </article>
+    );
+  }
+
+  /* ── Recipe card (food-culinary) ── */
+  if (variant === "recipe") {
+    return (
+      <article className="border overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl group relative rounded-xl" style={{ backgroundColor: p.surface, borderColor: `${p.muted}20` }}>
+        {tmpl.image && (
+          <div className="relative w-full h-40 overflow-hidden">
+            <Image src={tmpl.image} alt={tmpl.name} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition-transform duration-500 group-hover:scale-105" />
+            <div className="absolute top-2 right-2 px-2 py-1 rounded-lg text-[9px] font-bold backdrop-blur-md" style={{ backgroundColor: `${p.bg}cc`, color: p.accent }}>{tmpl.icon} {tmpl.tags[0]}</div>
+          </div>
+        )}
+        <div className="p-4 space-y-2" style={{ fontFamily: tmpl.font }}>
+          <h3 className="text-sm font-bold leading-tight" style={{ color: p.heading }}>{tmpl.sampleTitle || tmpl.name}</h3>
+          <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: p.text }}>{tmpl.sampleExcerpt || tmpl.description}</p>
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-[9px] px-2 py-0.5 rounded-full" style={{ backgroundColor: `${p.accent}15`, color: p.accent }}>🕐 4 min</span>
+            <span className="text-[9px] px-2 py-0.5 rounded-full" style={{ backgroundColor: `${p.accent}15`, color: p.accent }}>📖 Recipe</span>
+          </div>
+        </div>
+        <div className="p-3 flex items-center gap-2 border-t relative z-20 rounded-b-xl" style={{ borderColor: `${p.muted}15` }}>
+          <div className="flex gap-0.5 flex-1">{Object.values(p).map((c, i) => <div key={i} className="w-3 h-3 rounded-full" style={{ backgroundColor: c }} />)}</div>
+          <Link href={editorLink} className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all opacity-0 group-hover:opacity-100 rounded-full" style={{ backgroundColor: p.accent, color: p.bg }}>Use</Link>
+        </div>
+      </article>
+    );
+  }
+
+  /* ── Postcard card (travel-adventure) ── */
+  if (variant === "postcard") {
+    return (
+      <article className="overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl group relative rounded-sm" style={{ backgroundColor: p.bg, border: `3px solid ${p.surface}`, boxShadow: `4px 4px 0 ${p.muted}20` }}>
+        {tmpl.image && (
+          <div className="relative w-full h-40 overflow-hidden">
+            <Image src={tmpl.image} alt={tmpl.name} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition-transform duration-700 group-hover:scale-110" />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, transparent 40%, ${p.bg}e0)` }} />
+            <div className="absolute bottom-3 left-3 flex items-center gap-2">
+              <span className="text-[9px] uppercase tracking-[0.25em] px-2 py-0.5" style={{ color: p.heading, backgroundColor: `${p.accent}cc`, fontFamily: tmpl.font }}>{tmpl.tags[0]}</span>
+            </div>
+          </div>
+        )}
+        <div className="p-4 space-y-2" style={{ fontFamily: tmpl.font }}>
+          <h3 className="text-sm font-bold leading-tight" style={{ color: p.heading }}>{tmpl.sampleTitle || tmpl.name}</h3>
+          <p className="text-[11px] leading-relaxed line-clamp-2 italic" style={{ color: p.text }}>{tmpl.sampleExcerpt || tmpl.description}</p>
+          <div className="flex items-center gap-3 pt-1">
+            <span className="text-[10px]" style={{ color: p.accent }}>✈</span>
+            <div className="h-[1px] flex-1" style={{ backgroundColor: `${p.muted}30`, backgroundImage: `repeating-linear-gradient(90deg, ${p.muted}40 0, ${p.muted}40 4px, transparent 4px, transparent 8px)` }} />
+            <span className="text-[9px]" style={{ color: p.muted }}>4 min</span>
+          </div>
+        </div>
+        <div className="p-3 flex items-center gap-2 border-t relative z-20" style={{ borderColor: `${p.muted}15` }}>
+          <div className="flex gap-0.5 flex-1">{Object.values(p).map((c, i) => <div key={i} className="w-3 h-3" style={{ backgroundColor: c, borderRadius: "2px" }} />)}</div>
+          <Link href={editorLink} className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all opacity-0 group-hover:opacity-100" style={{ backgroundColor: p.accent, color: p.bg }}>Explore</Link>
+        </div>
+      </article>
+    );
+  }
+
+  /* ── Notebook card (education-learning) ── */
+  if (variant === "notebook") {
+    return (
+      <article className="overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl group relative border" style={{ backgroundColor: p.bg, borderColor: `${p.muted}20` }}>
+        <div className="absolute left-0 top-0 bottom-0 w-8 border-r" style={{ backgroundColor: `${p.accent}08`, borderColor: `${p.accent}20` }} />
+        <div className="ml-8">
+          {tmpl.image && (
+            <div className="relative w-full h-28 overflow-hidden border-b" style={{ borderColor: `${p.muted}15` }}>
+              <Image src={tmpl.image} alt={tmpl.name} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition-transform duration-500 group-hover:scale-105" />
+              <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, transparent 50%, ${p.bg})` }} />
+            </div>
+          )}
+          <div className="p-4 space-y-2" style={{ fontFamily: tmpl.font, backgroundImage: `repeating-linear-gradient(transparent, transparent 23px, ${p.muted}10 24px)` }}>
+            <span className="text-[9px] uppercase tracking-[0.2em]" style={{ color: p.accent }}>{tmpl.tags[0]}</span>
+            <h3 className="text-sm font-bold leading-tight" style={{ color: p.heading }}>{tmpl.sampleTitle || tmpl.name}</h3>
+            <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: p.text }}>{tmpl.sampleExcerpt || tmpl.description}</p>
+            <span className="text-[9px] block" style={{ color: p.muted }}>📖 4 min lesson</span>
+          </div>
+          <div className="p-3 flex items-center gap-2 border-t relative z-20" style={{ borderColor: `${p.muted}15` }}>
+            <div className="flex gap-0.5 flex-1">{Object.values(p).map((c, i) => <div key={i} className="w-3 h-3 border" style={{ backgroundColor: c, borderColor: `${p.muted}20` }} />)}</div>
+            <Link href={editorLink} className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all opacity-0 group-hover:opacity-100" style={{ backgroundColor: p.accent, color: p.bg }}>Use</Link>
+          </div>
+        </div>
+      </article>
+    );
+  }
+
+  /* ── Vinyl card (music-entertainment) ── */
+  if (variant === "vinyl") {
+    return (
+      <article className="overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl group relative rounded-2xl border" style={{ backgroundColor: p.bg, borderColor: `${p.accent}20` }}>
+        {tmpl.image && (
+          <div className="relative w-full h-36 overflow-hidden">
+            <Image src={tmpl.image} alt={tmpl.name} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition-transform duration-500 group-hover:scale-105 saturate-125" />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${p.bg}cc 0%, transparent 50%, ${p.bg}cc 100%)` }} />
+            <div className="absolute top-3 right-3 w-10 h-10 rounded-full border-2 flex items-center justify-center group-hover:animate-spin" style={{ borderColor: `${p.accent}60`, backgroundColor: `${p.bg}cc` }}>
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.accent }} />
+            </div>
+          </div>
+        )}
+        <div className="p-4 space-y-2" style={{ fontFamily: tmpl.font }}>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px]" style={{ color: p.accent }}>♫</span>
+            <span className="text-[9px] uppercase tracking-[0.2em]" style={{ color: p.muted }}>{tmpl.tags[0]}</span>
+          </div>
+          <h3 className="text-sm font-bold leading-tight" style={{ color: p.heading }}>{tmpl.sampleTitle || tmpl.name}</h3>
+          <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: p.text }}>{tmpl.sampleExcerpt || tmpl.description}</p>
+          <div className="flex items-center gap-1">
+            {[...Array(5)].map((_, i) => <div key={i} className="w-1" style={{ height: `${8 + Math.random() * 10}px`, backgroundColor: p.accent, opacity: 0.4 + Math.random() * 0.6 }} />)}
+            <span className="text-[9px] ml-2" style={{ color: p.muted }}>4:00</span>
+          </div>
+        </div>
+        <div className="p-3 flex items-center gap-2 border-t relative z-20 rounded-b-2xl" style={{ borderColor: `${p.accent}15` }}>
+          <div className="flex gap-1 flex-1">{Object.values(p).map((c, i) => <div key={i} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c }} />)}</div>
+          <Link href={editorLink} className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all opacity-0 group-hover:opacity-100 rounded-full" style={{ backgroundColor: p.accent, color: p.bg }}>Play</Link>
+        </div>
+      </article>
+    );
+  }
+
+  /* ── Minimal card (about-portfolio) ── */
+  if (variant === "minimal") {
+    return (
+      <article className="overflow-hidden transition-all hover:-translate-y-0.5 group relative" style={{ backgroundColor: "transparent" }}>
+        {tmpl.image && (
+          <div className="relative w-full h-36 overflow-hidden" style={{ borderRadius: "2px" }}>
+            <Image src={tmpl.image} alt={tmpl.name} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition-transform duration-500 group-hover:scale-105" />
+          </div>
+        )}
+        <div className="py-3 space-y-1.5" style={{ fontFamily: tmpl.font }}>
+          <h3 className="text-sm font-semibold leading-tight" style={{ color: p.heading }}>{tmpl.sampleTitle || tmpl.name}</h3>
+          <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: p.muted }}>{tmpl.sampleExcerpt || tmpl.description}</p>
+          <Link href={editorLink} className="text-[10px] font-semibold transition-colors inline-flex items-center gap-1 opacity-0 group-hover:opacity-100" style={{ color: p.accent }}>Use Theme <span>→</span></Link>
+        </div>
+      </article>
+    );
+  }
+
+  /* ── Classic card (default: market-business) ── */
   return (
     <article className="border overflow-hidden transition-all hover:-translate-y-1 hover:shadow-2xl group relative" style={{ backgroundColor: p.surface, borderColor: `${p.muted}25` }}>
-      {/* Browser chrome bar */}
       <div className="flex items-center gap-1.5 px-3 py-2 border-b" style={{ backgroundColor: p.bg, borderColor: `${p.muted}20` }}>
         <div className="flex gap-1">
           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: `${p.muted}50` }} />
@@ -29,38 +356,19 @@ function BlogPreviewCard({ tmpl, categoryLabel }: { tmpl: BlockTemplate; categor
           <span className="ml-auto text-[8px] tracking-wider uppercase px-1.5 py-0.5 border" style={{ color: p.accent, borderColor: `${p.accent}40` }}>{categoryLabel}</span>
         )}
       </div>
-
-      {/* Theme preview image */}
       {tmpl.image && (
         <div className="relative w-full h-36 overflow-hidden">
-          <Image
-            src={tmpl.image}
-            alt={tmpl.name}
-            fill
-            sizes="(max-width: 768px) 100vw, 33vw"
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
+          <Image src={tmpl.image} alt={tmpl.name} fill sizes="(max-width: 768px) 100vw, 33vw" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
           <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, transparent 40%, ${p.bg})` }} />
         </div>
       )}
-
-      {/* Blog article preview */}
       <div className="p-4 space-y-3" style={{ backgroundColor: p.bg }}>
         <div className="flex items-center gap-2">
           <div className="w-1 h-4" style={{ backgroundColor: p.accent }} />
-          <span className="text-[9px] uppercase tracking-[0.2em]" style={{ color: p.muted, fontFamily: tmpl.font }}>
-            {tmpl.tags[0]} — Jan 2025
-          </span>
+          <span className="text-[9px] uppercase tracking-[0.2em]" style={{ color: p.muted, fontFamily: tmpl.font }}>{tmpl.tags[0]} — Jan 2025</span>
         </div>
-
-        <h3 className="text-sm font-bold leading-tight" style={{ color: p.heading, fontFamily: tmpl.font }}>
-          {tmpl.sampleTitle || tmpl.name}
-        </h3>
-
-        <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: p.text, fontFamily: tmpl.font }}>
-          {tmpl.sampleExcerpt || tmpl.description}
-        </p>
-
+        <h3 className="text-sm font-bold leading-tight" style={{ color: p.heading, fontFamily: tmpl.font }}>{tmpl.sampleTitle || tmpl.name}</h3>
+        <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: p.text, fontFamily: tmpl.font }}>{tmpl.sampleExcerpt || tmpl.description}</p>
         <div className="flex items-center gap-2 pt-1">
           <div className="flex gap-0.5">
             <div className="w-8 h-1" style={{ backgroundColor: p.accent }} />
@@ -70,30 +378,14 @@ function BlogPreviewCard({ tmpl, categoryLabel }: { tmpl: BlockTemplate; categor
           <span className="text-[9px]" style={{ color: p.muted }}>4 min read</span>
         </div>
       </div>
-
-      {/* Hover description overlay */}
       <div className="absolute inset-0 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10" style={{ background: `linear-gradient(to top, ${p.bg}f5 0%, ${p.bg}e0 40%, transparent 100%)` }}>
         <div className="p-4 pointer-events-auto">
-          <p className="text-xs leading-relaxed line-clamp-4 mb-3" style={{ color: p.text, fontFamily: tmpl.font }}>
-            {tmpl.description}
-          </p>
+          <p className="text-xs leading-relaxed line-clamp-4 mb-3" style={{ color: p.text, fontFamily: tmpl.font }}>{tmpl.description}</p>
         </div>
       </div>
-
-      {/* Palette swatches + action */}
       <div className="p-3 flex items-center gap-2 border-t relative z-20" style={{ backgroundColor: p.surface, borderColor: `${p.muted}15` }}>
-        <div className="flex gap-0.5 flex-1">
-          {Object.values(p).map((color, i) => (
-            <div key={i} className="w-3 h-3 border" style={{ backgroundColor: color, borderColor: `${p.muted}20` }} title={color} />
-          ))}
-        </div>
-        <Link
-          href={editorLink}
-          className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0"
-          style={{ backgroundColor: p.accent, color: p.bg }}
-        >
-          Use Theme
-        </Link>
+        <div className="flex gap-0.5 flex-1">{Object.values(p).map((color, i) => <div key={i} className="w-3 h-3 border" style={{ backgroundColor: color, borderColor: `${p.muted}20` }} title={color} />)}</div>
+        <Link href={editorLink} className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0" style={{ backgroundColor: p.accent, color: p.bg }}>Use Theme</Link>
       </div>
     </article>
   );
@@ -295,6 +587,7 @@ export default function BlogThemesPage() {
                   value={searchQuery}
                   onChange={(e) => { setSearchQuery(e.target.value); setActiveCategory(null); }}
                   className="w-full pl-8 pr-3 py-1.5 text-xs bg-surface-container border border-white/10 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary/40 focus:ring-1 focus:ring-primary/20 outline-none"
+                  suppressHydrationWarning
                 />
               </div>
             </div>
@@ -469,7 +762,7 @@ export default function BlogThemesPage() {
                 {/* Blog preview cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {category.templates.map((tmpl) => (
-                    <BlogPreviewCard key={tmpl.id} tmpl={tmpl} />
+                    <BlogPreviewCard key={tmpl.id} tmpl={tmpl} variant={style.cardVariant} />
                   ))}
                 </div>
               </section>

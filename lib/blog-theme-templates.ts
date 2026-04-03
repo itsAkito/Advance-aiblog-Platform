@@ -4,6 +4,8 @@
    font, gradient accent, and pattern overlay.
    ──────────────────────────────────────────────────────────── */
 
+export type CardVariant = "classic" | "magazine" | "terminal" | "polaroid" | "glassmorphic" | "brutalist" | "editorial" | "neon" | "minimal" | "cinematic" | "notebook" | "postcard" | "vinyl" | "recipe" | "passport";
+
 export interface CategoryStyle {
   heroImage: string;
   fontFamily: string;
@@ -12,6 +14,7 @@ export interface CategoryStyle {
   gradientVia: string;
   accentColor: string;
   pattern: string;
+  cardVariant: CardVariant;
 }
 
 export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
@@ -23,6 +26,7 @@ export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
     gradientVia: "rgba(40,30,10,0.75)",
     accentColor: "#c99a5b",
     pattern: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(201,154,91,0.03) 10px, rgba(201,154,91,0.03) 20px)",
+    cardVariant: "classic",
   },
   "real-estate": {
     heroImage: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&h=400&fit=crop&q=80",
@@ -32,6 +36,7 @@ export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
     gradientVia: "rgba(10,25,50,0.75)",
     accentColor: "#4d8ef7",
     pattern: "repeating-linear-gradient(0deg, transparent, transparent 20px, rgba(77,142,247,0.02) 20px, rgba(77,142,247,0.02) 21px), repeating-linear-gradient(90deg, transparent, transparent 20px, rgba(77,142,247,0.02) 20px, rgba(77,142,247,0.02) 21px)",
+    cardVariant: "polaroid",
   },
   "science": {
     heroImage: "https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=800&h=400&fit=crop&q=80",
@@ -41,6 +46,7 @@ export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
     gradientVia: "rgba(20,10,50,0.75)",
     accentColor: "#7c6cf0",
     pattern: "radial-gradient(circle, rgba(124,108,240,0.04) 1px, transparent 1px)",
+    cardVariant: "glassmorphic",
   },
   "technology": {
     heroImage: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&h=400&fit=crop&q=80",
@@ -50,6 +56,7 @@ export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
     gradientVia: "rgba(5,30,20,0.75)",
     accentColor: "#00f0ff",
     pattern: "linear-gradient(0deg, rgba(0,240,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0,240,255,0.02) 1px, transparent 1px)",
+    cardVariant: "terminal",
   },
   "social-media": {
     heroImage: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&h=400&fit=crop&q=80",
@@ -59,6 +66,7 @@ export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
     gradientVia: "rgba(50,10,40,0.75)",
     accentColor: "#e040a0",
     pattern: "radial-gradient(ellipse at 30% 50%, rgba(224,64,160,0.06), transparent 50%), radial-gradient(ellipse at 70% 50%, rgba(100,60,240,0.06), transparent 50%)",
+    cardVariant: "neon",
   },
   "code-space": {
     heroImage: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&h=400&fit=crop&q=80",
@@ -68,6 +76,7 @@ export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
     gradientVia: "rgba(13,17,23,0.85)",
     accentColor: "#58a6ff",
     pattern: "linear-gradient(0deg, rgba(88,166,255,0.015) 1px, transparent 1px)",
+    cardVariant: "terminal",
   },
   "photography": {
     heroImage: "https://images.unsplash.com/photo-1452587925148-ce544e77e70d?w=800&h=400&fit=crop&q=80",
@@ -77,6 +86,7 @@ export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
     gradientVia: "rgba(20,14,8,0.75)",
     accentColor: "#d4944c",
     pattern: "radial-gradient(circle at 50% 50%, rgba(212,148,76,0.04) 0%, transparent 60%)",
+    cardVariant: "polaroid",
   },
   "architecture": {
     heroImage: "https://images.unsplash.com/photo-1487958449943-2429e8be8625?w=800&h=400&fit=crop&q=80",
@@ -86,6 +96,7 @@ export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
     gradientVia: "rgba(18,18,16,0.8)",
     accentColor: "#c8b890",
     pattern: "repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(200,184,144,0.02) 40px, rgba(200,184,144,0.02) 41px)",
+    cardVariant: "brutalist",
   },
   "typography": {
     heroImage: "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=800&h=400&fit=crop&q=80",
@@ -95,6 +106,7 @@ export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
     gradientVia: "rgba(30,20,10,0.75)",
     accentColor: "#a08060",
     pattern: "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(160,128,96,0.015) 3px, rgba(160,128,96,0.015) 4px)",
+    cardVariant: "editorial",
   },
   "about-portfolio": {
     heroImage: "https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=800&h=400&fit=crop&q=80",
@@ -104,6 +116,7 @@ export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
     gradientVia: "rgba(10,14,40,0.75)",
     accentColor: "#5890e0",
     pattern: "radial-gradient(circle at 80% 20%, rgba(88,144,224,0.06), transparent 50%)",
+    cardVariant: "minimal",
   },
   "health-wellness": {
     heroImage: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800&h=400&fit=crop&q=80",
@@ -113,6 +126,7 @@ export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
     gradientVia: "rgba(10,40,30,0.75)",
     accentColor: "#4ade80",
     pattern: "radial-gradient(circle at 50% 80%, rgba(74,222,128,0.06), transparent 60%)",
+    cardVariant: "magazine",
   },
   "food-culinary": {
     heroImage: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&h=400&fit=crop&q=80",
@@ -122,6 +136,7 @@ export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
     gradientVia: "rgba(40,14,5,0.75)",
     accentColor: "#f97316",
     pattern: "radial-gradient(circle at 30% 60%, rgba(249,115,22,0.06), transparent 50%)",
+    cardVariant: "recipe",
   },
   "travel-adventure": {
     heroImage: "https://images.unsplash.com/photo-1488085061387-422e29b40080?w=800&h=400&fit=crop&q=80",
@@ -131,6 +146,7 @@ export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
     gradientVia: "rgba(10,20,50,0.75)",
     accentColor: "#38bdf8",
     pattern: "radial-gradient(ellipse at 60% 40%, rgba(56,189,248,0.06), transparent 50%)",
+    cardVariant: "postcard",
   },
   "education-learning": {
     heroImage: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=400&fit=crop&q=80",
@@ -140,6 +156,7 @@ export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
     gradientVia: "rgba(30,18,10,0.75)",
     accentColor: "#fbbf24",
     pattern: "repeating-linear-gradient(0deg, transparent, transparent 4px, rgba(251,191,36,0.015) 4px, rgba(251,191,36,0.015) 5px)",
+    cardVariant: "notebook",
   },
   "music-entertainment": {
     heroImage: "https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=800&h=400&fit=crop&q=80",
@@ -149,6 +166,7 @@ export const CATEGORY_STYLES: Record<string, CategoryStyle> = {
     gradientVia: "rgba(30,5,25,0.75)",
     accentColor: "#ec4899",
     pattern: "radial-gradient(ellipse at 20% 60%, rgba(236,72,153,0.08), transparent 50%), radial-gradient(ellipse at 80% 40%, rgba(139,92,246,0.06), transparent 50%)",
+    cardVariant: "vinyl",
   },
 };
 

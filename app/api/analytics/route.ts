@@ -129,11 +129,12 @@ export async function GET(request: NextRequest) {
       .select('id', { count: 'exact' })
       .limit(1);
 
-    // Get total posts
+    // Get total posts (only approved ones)
     const { data: _posts, count: totalPosts } = await supabase
       .from('posts')
       .select('id', { count: 'exact' })
       .eq('status', 'published')
+      .or('approval_status.eq.approved,approval_status.is.null')
       .limit(1);
 
     // Get active subscriptions

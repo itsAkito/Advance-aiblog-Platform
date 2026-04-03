@@ -15,7 +15,8 @@ export async function GET() {
     const { data: postAuthors, error: postAuthorsError } = await supabase
       .from('posts')
       .select('author_id, ai_generated, views')
-      .eq('status', 'published');
+      .eq('status', 'published')
+      .or('approval_status.eq.approved,approval_status.is.null');
 
     if (postAuthorsError) {
       return NextResponse.json({ error: postAuthorsError.message }, { status: 400 });
