@@ -1,12 +1,25 @@
 import ImageKit from "imagekit";
 
-const imagekit = new ImageKit({
-  publicKey: process.env.IMAGEKIT_PUBLIC_KEY!,
-  privateKey: process.env.IMAGEKIT_PRIVATE_KEY!,
-  urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT!,
-});
+// Lazily-initialized singleton — avoids crashing at build-time when env vars
+// are absent (Next.js collects page data without real env vars during `next build`).
+let _instance: ImageKit | null = null;
 
-export default imagekit;
+export function getImageKitClient(): ImageKit {
+  if (_instance) return _instance;
+  const publicKey = process.env.IMAGEKIT_PUBLIC_KEY;
+  const privateKey = process.env.IMAGEKIT_PRIVATE_KEY;
+  const urlEndpoint = process.env.IMAGEKIT_URL_ENDPOINT;
+  if (!publicKey || !privateKey || !urlEndpoint) {
+    throw new Error(
+      "ImageKit is not configured. Set IMAGEKIT_PUBLIC_KEY, IMAGEKIT_PRIVATE_KEY and IMAGEKIT_URL_ENDPOINT."
+    );
+  }
+  _instance = new ImageKit({ publicKey, privateKey, urlEndpoint });
+  return _instance;
+}
+
+// Default export kept for backward compatibility — lazy proxy so import still works.
+export default getImageKitClient;
 
 type ImageOptimizeOptions = {
   width?: number;

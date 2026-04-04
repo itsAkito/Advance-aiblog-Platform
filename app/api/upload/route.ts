@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import imagekit from "@/lib/imagekit";
+import { getImageKitClient } from "@/lib/imagekit";
 import { getAuthUserId } from "@/lib/auth-helpers";
 
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const result = await imagekit.upload({
+    const result = await getImageKitClient().upload({
       file: buffer,
       fileName: `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`,
       folder: `/${safeFolder}`,
