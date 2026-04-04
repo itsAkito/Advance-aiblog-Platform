@@ -45,7 +45,7 @@ export async function POST(_request: NextRequest) {
     }
 
     try {
-      console.log('Starting AI content generation for prompt:', finalPrompt.substring(0, 50));
+
 
       // Generate content with retry logic for rate limiting
       const content = await retryWithExponentialBackoff(

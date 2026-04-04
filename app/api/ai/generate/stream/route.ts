@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     const customReadable = new ReadableStream({
       async start(controller) {
         try {
-          console.log('Starting stream for:', finalPrompt.substring(0, 50));
+
 
           const stream = await generateBlogContentStream(finalPrompt, tone);
 
