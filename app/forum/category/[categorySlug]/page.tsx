@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
 import NavBar from "@/components/NavBar";
-import Footer from "@/components/Footer";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -105,7 +105,6 @@ export default function CategoryPage() {
           <p className="text-on-surface-variant">Category not found.</p>
           <Button onClick={() => router.push("/forum")}>Back to Forum</Button>
         </div>
-        <Footer />
       </div>
     );
   }
@@ -291,7 +290,6 @@ export default function CategoryPage() {
         )}
       </main>
 
-      <Footer />
     </div>
   );
 }

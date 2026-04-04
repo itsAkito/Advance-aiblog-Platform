@@ -1,4 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
 const isProtectedRoute = createRouteMatcher([
@@ -73,18 +74,17 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
 
     try {
       if (userId) {
-        const response = await fetch(new URL("/api/user/profile", req.url), {
-          headers: {
-            cookie: req.headers.get("cookie") || "",
-          },
-        });
-
-        if (response.ok) {
-          const profilePayload = await response.json();
-          const resolvedProfile = profilePayload?.profile || profilePayload;
-          userRole = resolvedProfile?.role || "user";
-          isAuthenticated = true;
-        }
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", userId)
+          .single();
+        userRole = profile?.role || "user";
+        isAuthenticated = true;
       }
 
       if (!isAuthenticated) {

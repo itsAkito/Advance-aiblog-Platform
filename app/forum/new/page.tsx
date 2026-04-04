@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
 import NavBar from "@/components/NavBar";
-import Footer from "@/components/Footer";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -252,7 +252,6 @@ function NewTopicContent() {
           </CardContent>
         </Card>
       </main>
-      <Footer />
     </div>
   );
 }

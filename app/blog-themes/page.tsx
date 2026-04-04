@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import Navbar from "@/components/NavBar";
-import Footer from "@/components/Footer";
+
 import { useAuth } from "@/context/AuthContext";
 import { BLOCK_VARIANTS, BlogTheme, FONT_OPTIONS, getThemeFromAny, sanitizeThemeConfig } from "@/lib/blog-themes";
 import { CATEGORY_STYLES, FEATURED_THEMES, EXPANDED_TEMPLATE_CATEGORIES, type BlockTemplate, type ThemeCreatorForm, type CardVariant } from "@/lib/blog-theme-templates";
@@ -773,7 +773,6 @@ export default function BlogThemesPage() {
           })}
         </div>
       </main>
-      <Footer />
     </>
   );
 }

@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
 import NavBar from "@/components/NavBar";
-import Footer from "@/components/Footer";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -194,7 +194,6 @@ export default function TopicPage() {
           <p className="text-on-surface-variant">Topic not found.</p>
           <Button onClick={() => router.push("/forum")}>Back to Forum</Button>
         </div>
-        <Footer />
       </div>
     );
   }
@@ -462,7 +461,6 @@ export default function TopicPage() {
         )}
       </main>
 
-      <Footer />
     </div>
   );
 }

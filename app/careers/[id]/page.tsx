@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/NavBar";
-import Footer from "@/components/Footer";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -148,7 +148,6 @@ export default function JobDetailPage() {
             <p className="text-on-surface-variant">Loading job details...</p>
           </div>
         </main>
-        <Footer />
       </>
     );
   }
@@ -165,7 +164,6 @@ export default function JobDetailPage() {
             <Button onClick={() => router.push("/careers")}>Back to Jobs</Button>
           </div>
         </main>
-        <Footer />
       </>
     );
   }
@@ -466,7 +464,6 @@ export default function JobDetailPage() {
           </div>
         </div>
       </main>
-      <Footer />
     </>
   );
 }

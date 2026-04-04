@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import Navbar from "@/components/NavBar";
-import Footer from "@/components/Footer";
+
 import { useAuth } from "@/context/AuthContext";
 import { renderMarkdownBlocks } from "@/lib/markdown";
 import { emitLikeUpdate, subscribeLikeUpdates } from "@/lib/like-sync";
@@ -728,7 +728,6 @@ export default function BlogPostPage() {
           </section>
         </article>
       </main>
-      <Footer />
     </>
   );
 }
