@@ -5,10 +5,8 @@ import { AuthProvider } from "@/context/AuthContext";
 import { AppProvider } from "@/context/AppContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { QueryProvider } from "@/components/QueryProvider";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ClerkErrorBoundary } from "@/components/ClerkProviderWrapper";
-import PageTransition from "@/components/PageTransition";
-import OnboardingOverlay from "@/components/OnboardingOverlay";
+import ClientShell from "@/components/ClientShell";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope" });
@@ -62,12 +60,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <ThemeProvider>
                 <QueryProvider>
                   <AppProvider>
-                    <ErrorBoundary>
-                      <PageTransition>
-                        {children}
-                      </PageTransition>
-                      <OnboardingOverlay />
-                    </ErrorBoundary>
+                    <ClientShell>
+                      {children}
+                    </ClientShell>
                   </AppProvider>
                 </QueryProvider>
               </ThemeProvider>
