@@ -149,10 +149,10 @@ export default function JobsPage() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.14),transparent_45%),radial-gradient(circle_at_top_right,rgba(245,158,11,0.12),transparent_42%),hsl(var(--background))] pt-20 pb-16 px-4 sm:px-8">
+      <main className="min-h-screen bg-background gradient-mesh pt-20 pb-16 px-4 sm:px-8">
         <div className="max-w-5xl mx-auto">
           {/* Header */}
-          <header className="mb-10 relative overflow-hidden rounded-3xl border border-amber-500/20 bg-linear-to-br from-amber-950/55 via-orange-950/35 to-surface-container p-6 sm:p-8">
+          <header className="mb-10 relative overflow-hidden rounded-3xl glass-card p-6 sm:p-8">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(251,191,36,0.2),transparent_44%)]" />
             <div className="relative">
               <div className="flex items-center gap-2 mb-2">

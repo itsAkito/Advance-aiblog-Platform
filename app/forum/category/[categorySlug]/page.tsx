@@ -98,7 +98,7 @@ export default function CategoryPage() {
 
   if (!loading && !category) {
     return (
-      <div className="min-h-screen bg-background text-on-background">
+      <div className="min-h-screen bg-background gradient-mesh text-on-background">
         <NavBar />
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <span className="material-symbols-outlined text-6xl text-on-surface-variant">forum</span>
@@ -110,7 +110,7 @@ export default function CategoryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-on-background">
+    <div className="min-h-screen bg-background gradient-mesh text-on-background">
       <NavBar />
 
       {/* Category Header */}

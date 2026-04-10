@@ -96,7 +96,7 @@ export default function ForumPage() {
     : recentTopics;
 
   return (
-    <div className="min-h-screen text-on-background bg-background hero-gradient">
+    <div className="min-h-screen text-on-background bg-background gradient-mesh">
       <NavBar />
 
       {/* ── Hero Section ─────────────────────────────────────────── */}

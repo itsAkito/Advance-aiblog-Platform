@@ -524,7 +524,7 @@ export default function BlogThemesPage() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-background">
+      <main className="min-h-screen bg-background gradient-mesh">
         {/* ─── Hero Section ─── */}
         <section className="relative overflow-hidden border-b border-white/5">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(201,154,91,0.12),transparent_50%),radial-gradient(circle_at_bottom_right,rgba(100,80,160,0.08),transparent_50%)]" />

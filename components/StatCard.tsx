@@ -22,7 +22,7 @@ export default function StatCard({
   };
 
   return (
-    <div className="bg-surface-container-low rounded-2xl p-8 transition-transform hover:scale-[1.02] duration-300">
+    <div className="glass-card rounded-2xl p-8 transition-transform hover:scale-[1.02] duration-300">
       <div className="flex justify-between items-start mb-6">
         <div className={`p-3 rounded-xl ${
           changeColor === "green" ? "bg-primary/10" :

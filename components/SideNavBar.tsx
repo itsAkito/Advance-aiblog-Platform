@@ -52,7 +52,7 @@ export default function SideNavBar({ activePage = "home" }: SideNavBarProps) {
 
   return (
     <>
-    <aside className="hidden lg:flex h-screen w-64 fixed left-0 top-0 border-r border-black/5 dark:border-white/5 bg-white dark:bg-[#0e0e0e] flex-col pt-20 pb-8 z-40 transition-colors">
+    <aside className="hidden lg:flex h-screen w-64 fixed left-0 top-0 glass-sidebar flex-col pt-20 pb-8 z-40 transition-colors">
       {/* User Profile */}
       <div className="px-6 mb-6">
         <div className="flex items-center gap-3">
@@ -90,8 +90,8 @@ export default function SideNavBar({ activePage = "home" }: SideNavBarProps) {
                   href={item.href}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium ${
                     activePage === item.id
-                      ? "bg-primary/10 text-primary font-semibold"
-                      : "text-on-surface-variant hover:text-on-surface hover:bg-primary/5"
+                      ? "sidebar-active text-primary font-semibold"
+                      : "text-on-surface-variant hover:text-on-surface hover:bg-white/5 nav-link-glow"
                   }`}
                 >
                   <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
@@ -117,7 +117,7 @@ export default function SideNavBar({ activePage = "home" }: SideNavBarProps) {
     </aside>
 
     {/* Mobile bottom tab bar — visible only below lg */}
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-[#0e0e0e]/95 backdrop-blur-xl border-t border-black/5 dark:border-white/5 flex items-center justify-around px-2 py-1 safe-bottom transition-colors">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 glass-nav flex items-center justify-around px-2 py-1 safe-bottom transition-colors">
       {ALL_ITEMS.slice(0, 5).map((item) => (
         <Link
           key={item.id}

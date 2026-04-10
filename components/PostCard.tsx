@@ -35,7 +35,7 @@ export default function PostCard({
   };
 
   return (
-    <article className="group bg-surface-container-low rounded-3xl overflow-hidden hover:scale-[1.01] transition-all duration-500">
+    <article className="group glass-card rounded-3xl overflow-hidden hover:scale-[1.01] transition-all duration-500">
       {/* Image Container */}
       <div className="aspect-21/9 w-full relative overflow-hidden">
         <Image

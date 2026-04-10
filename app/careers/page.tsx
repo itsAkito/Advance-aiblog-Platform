@@ -158,7 +158,7 @@ function ResumeBuilder() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Personal Information */}
-        <Card className="bg-surface-container-low/50 backdrop-blur border-outline-variant/10">
+        <Card className="glass-card">
           <CardContent className="p-6">
             <h3 className="text-xl font-bold mb-4">Personal Information</h3>
             <div className="space-y-4">
@@ -216,7 +216,7 @@ function ResumeBuilder() {
         </Card>
 
         {/* Professional Summary */}
-        <Card className="bg-surface-container-low/50 backdrop-blur border-outline-variant/10">
+        <Card className="glass-card">
           <CardContent className="p-6">
             <h3 className="text-xl font-bold mb-4">Professional Summary</h3>
             <Textarea
@@ -230,7 +230,7 @@ function ResumeBuilder() {
       </div>
 
       {/* Experience Section */}
-      <Card className="bg-surface-container-low/50 backdrop-blur border-outline-variant/10">
+      <Card className="glass-card">
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold">Work Experience</h3>
@@ -315,7 +315,7 @@ function ResumeBuilder() {
       </Card>
 
       {/* Education Section */}
-      <Card className="bg-surface-container-low/50 backdrop-blur border-outline-variant/10">
+      <Card className="glass-card">
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold">Education</h3>
@@ -410,7 +410,7 @@ function ResumeBuilder() {
       </Card>
 
       {/* Skills Section */}
-      <Card className="bg-surface-container-low/50 backdrop-blur border-outline-variant/10">
+      <Card className="glass-card">
         <CardContent className="p-6">
           <h3 className="text-xl font-bold mb-4">Skills</h3>
           <div className="space-y-4">
@@ -576,7 +576,7 @@ export default function CareersPage() {
           {activeTab === "jobs" ? (
             <>
               {/* Search & Filters */}
-              <Card className="mb-8 bg-surface-container-low/50 backdrop-blur border-outline-variant/10">
+              <Card className="mb-8 glass-card">
             <CardContent className="p-6">
               <div className="space-y-4">
                 {/* Search */}
@@ -699,7 +699,7 @@ export default function CareersPage() {
                 {filteredJobs.map((job) => (
                   <Card
                     key={job.id}
-                    className="bg-surface-container-low/50 backdrop-blur border-outline-variant/10 hover:border-orange-400/40 hover:shadow-xl hover:shadow-orange-500/10 hover:-translate-y-1 transition-all duration-300 cursor-pointer group"
+                    className="glass-card hover:border-orange-400/40 hover:shadow-xl hover:shadow-orange-500/10 hover:-translate-y-1 transition-all duration-300 cursor-pointer group"
                     onClick={() => router.push(`/careers/${job.id}`)}
                   >
                     <CardContent className="p-6 h-full flex flex-col">

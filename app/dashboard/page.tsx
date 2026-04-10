@@ -94,7 +94,7 @@ export default function DashboardPage() {
   }, [fetchUserData]);
 
   return (
-    <div className="px-4 sm:px-8" style={{background: "radial-gradient(ellipse 70% 45% at 15% 5%, rgba(99,102,241,0.1) 0%, transparent 55%), radial-gradient(ellipse 60% 40% at 85% 90%, rgba(16,185,129,0.08) 0%, transparent 55%)"}}>
+    <div className="px-4 sm:px-8 gradient-mesh">
           <div className="max-w-6xl mx-auto">
             {/* Header */}
             <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -123,7 +123,7 @@ export default function DashboardPage() {
 
             {/* Stats Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
-              <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl shadow-xl shadow-black/20 hover:border-indigo-400/30 hover:-translate-y-0.5 transition-all" style={{background:"linear-gradient(135deg,rgba(99,102,241,0.08) 0%,rgba(255,255,255,0.02) 100%)"}}>
+              <Card className="glass-card-blue rounded-2xl hover:border-indigo-400/30 hover:-translate-y-0.5 transition-all">
                 <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
                   <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center" style={{background:"rgba(99,102,241,0.15)"}}>
                     <span className="material-symbols-outlined text-primary">visibility</span>
@@ -143,7 +143,7 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl shadow-xl shadow-black/20 hover:border-violet-400/30 hover:-translate-y-0.5 transition-all" style={{background:"linear-gradient(135deg,rgba(139,92,246,0.08) 0%,rgba(255,255,255,0.02) 100%)"}}>
+              <Card className="glass-card-purple rounded-2xl hover:border-violet-400/30 hover:-translate-y-0.5 transition-all">
                 <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
                   <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center" style={{background:"rgba(139,92,246,0.15)"}}>
                     <span className="material-symbols-outlined text-secondary">bolt</span>
@@ -166,7 +166,7 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl shadow-xl shadow-black/20 hover:border-emerald-400/30 hover:-translate-y-0.5 transition-all" style={{background:"linear-gradient(135deg,rgba(16,185,129,0.08) 0%,rgba(255,255,255,0.02) 100%)"}}>
+              <Card className="glass-card-emerald rounded-2xl hover:border-emerald-400/30 hover:-translate-y-0.5 transition-all">
                 <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
                   <div className="w-10 h-10 rounded-xl bg-tertiary/10 flex items-center justify-center" style={{background:"rgba(16,185,129,0.15)"}}>
                     <span className="material-symbols-outlined text-tertiary">group</span>
@@ -206,7 +206,7 @@ export default function DashboardPage() {
                 <div className="space-y-3">
                   {loading ? (
                     Array.from({ length: 3 }).map((_, i) => (
-                      <Card key={i} className="bg-surface-container-low border-outline-variant/5 rounded-xl">
+                      <Card key={i} className="glass-card rounded-xl">
                         <CardContent className="flex items-center gap-4 p-4">
                           <Skeleton className="w-12 h-12 rounded-lg bg-surface-container-high" />
                           <div className="flex-1 space-y-2">
@@ -218,7 +218,7 @@ export default function DashboardPage() {
                       </Card>
                     ))
                   ) : posts.length === 0 ? (
-                    <Card className="bg-surface-container border-outline-variant/10 rounded-2xl">
+                    <Card className="glass-card rounded-2xl">
                       <CardContent className="flex flex-col items-center py-12">
                         <div className="w-14 h-14 rounded-2xl bg-primary/5 flex items-center justify-center mb-4">
                           <span className="material-symbols-outlined text-2xl text-on-surface-variant/40">article</span>
@@ -234,7 +234,7 @@ export default function DashboardPage() {
                   ) : (
                     posts.slice(0, 4).map((post) => (
                       <Link key={post.id} href={`/editor?id=${post.id}`} className="block group">
-                        <Card className="bg-surface-container-low border-outline-variant/5 rounded-xl hover:bg-surface-container hover:border-outline-variant/15 transition-all">
+                        <Card className="glass-card rounded-xl hover:border-primary/15 transition-all">
                           <CardContent className="flex items-center gap-4 p-4">
                             <div className="w-11 h-11 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                               <span className="material-symbols-outlined text-primary text-lg">article</span>
@@ -258,7 +258,7 @@ export default function DashboardPage() {
               {/* Career Milestones */}
               <div className="lg:col-span-2 space-y-5">
                 <h2 className="text-xl font-bold font-headline text-on-surface">Career Milestones</h2>
-                <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl shadow-xl shadow-black/20">
+                <Card className="glass-card rounded-2xl">
                   <CardContent className="p-5 space-y-5">
                     {portfolioMilestones.length === 0 ? (
                       <p className="text-sm text-on-surface-variant">Milestones will appear as you publish and engage.</p>
@@ -291,7 +291,7 @@ export default function DashboardPage() {
                 </Card>
 
                 {/* AI Tip */}
-                <Card className="bg-linear-to-br from-secondary/5 to-tertiary/5 border-secondary/10 rounded-2xl overflow-hidden relative group backdrop-blur-xl">
+                <Card className="glass-card-purple rounded-2xl overflow-hidden relative group">
                   <div className="absolute -right-6 -top-6 w-24 h-24 bg-secondary/10 blur-3xl group-hover:bg-secondary/15 transition-all duration-500" />
                   <CardContent className="p-5 relative">
                     <div className="flex items-center gap-2 mb-3">
@@ -304,7 +304,7 @@ export default function DashboardPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl shadow-xl shadow-black/20">
+                <Card className="glass-card rounded-2xl">
                   <CardHeader className="pb-3">
                     <h3 className="font-headline text-sm font-bold text-on-surface flex items-center gap-2">
                       <span className="material-symbols-outlined text-primary text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>thumb_up</span>

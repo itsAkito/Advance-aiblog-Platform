@@ -129,7 +129,7 @@ export default function CollaborationPage() {
   };
 
   return (
-    <div className="px-4 sm:px-8">
+    <div className="px-4 sm:px-8 gradient-mesh">
       <div className="max-w-6xl mx-auto">
             <header className="mb-8">
               <h1 className="font-headline text-4xl font-extrabold tracking-tight text-on-surface">Collaborative Drafts</h1>
@@ -142,7 +142,7 @@ export default function CollaborationPage() {
               </Card>
             ) : (
               <div className="space-y-6">
-                <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl">
+                <Card className="glass-card rounded-2xl">
                   <CardHeader>
                     <h2 className="font-bold text-on-surface">Incoming Invitations</h2>
                   </CardHeader>
@@ -173,7 +173,7 @@ export default function CollaborationPage() {
                 </Card>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl">
+                <Card className="glass-card rounded-2xl">
                   <CardHeader>
                     <h2 className="font-bold text-on-surface">Your Drafts</h2>
                   </CardHeader>
@@ -201,7 +201,7 @@ export default function CollaborationPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="lg:col-span-2 bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl">
+                <Card className="lg:col-span-2 glass-card rounded-2xl">
                   <CardHeader>
                     <h2 className="font-bold text-on-surface">Invite Collaborators</h2>
                   </CardHeader>

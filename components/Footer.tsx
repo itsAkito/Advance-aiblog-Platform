@@ -6,7 +6,7 @@ import NewsletterForm from '@/components/NewsletterForm';
 
 export default function Footer() {
   return (
-    <footer className="w-full border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#0e0e0e] transition-colors">
+    <footer className="w-full glass-footer transition-colors">
       {/* ─── Newsletter Section ─── */}
       <div className="relative overflow-hidden border-b border-black/5 dark:border-white/5">
         <div className="absolute inset-0" style={{background: 'linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(139,92,246,0.06) 25%, transparent 50%, rgba(16,185,129,0.06) 75%, rgba(236,72,153,0.04) 100%)'}} />

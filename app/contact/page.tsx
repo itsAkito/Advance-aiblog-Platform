@@ -22,7 +22,7 @@ export default function ContactPage() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-background pt-24 pb-16 px-4 sm:px-8">
+      <main className="min-h-screen bg-background gradient-mesh pt-24 pb-16 px-4 sm:px-8">
         <div className="max-w-5xl mx-auto">
           <header className="mb-16 text-center">
             <span className="text-[10px] font-bold tracking-[0.2em] text-on-surface-variant uppercase block mb-4">Get In Touch</span>

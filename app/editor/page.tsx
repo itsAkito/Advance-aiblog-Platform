@@ -859,7 +859,7 @@ function EditorContent() {
         <div className={`flex-1 flex flex-col ${showAISidebar ? "lg:mr-80" : ""} ${showPreview ? "lg:mr-96" : ""} transition-all`}>
 
           {/* WordPress-style top bar: back + title + publish buttons */}
-          <div className={`sticky ${fromAdmin ? "top-16" : "top-16"} z-30 flex items-center justify-between gap-3 border-b border-white/10 bg-[#23282d] px-4 py-2.5`}>
+          <div className={`sticky ${fromAdmin ? "top-16" : "top-16"} z-40 flex items-center justify-between gap-3 border-b border-white/10 bg-[#23282d] px-4 py-2.5`}>
             <div className="flex items-center gap-2 min-w-0">
               <Button variant="ghost" size="icon" onClick={() => fromAdmin ? router.push("/admin/posts") : router.back()} className="h-8 w-8 text-zinc-300 hover:text-white hover:bg-white/10">
                 <span className="material-symbols-outlined text-lg">arrow_back</span>
@@ -949,7 +949,7 @@ function EditorContent() {
           </div>
 
           {/* WordPress Add Media / Visual|Text bar */}
-          <div className="sticky top-28 z-30 flex items-center justify-between gap-2 border-b border-white/10 bg-[#23282d] px-4 py-2">
+          <div className="sticky top-[calc(64px+46px)] z-40 flex items-center justify-between gap-2 border-b border-white/10 bg-[#23282d] px-4 py-2">
             <div className="flex flex-wrap items-center gap-1.5">
               <label className="flex cursor-pointer items-center gap-1.5 rounded border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-zinc-300 hover:bg-white/10 hover:text-white transition-colors">
                 <span className="material-symbols-outlined text-[15px] text-blue-400">add_photo_alternate</span>
@@ -991,7 +991,7 @@ function EditorContent() {
           </div>
 
           {/* WordPress-style format toolbar */}
-          <div className="sticky top-[calc(64px+46px+40px)] z-30 border-b border-white/10 bg-[#2c2c2c]">
+          <div className="sticky top-[calc(64px+46px+40px)] z-40 border-b border-white/10 bg-[#2c2c2c]">
             {/* Row 1: Paragraph dropdown + main format buttons */}
             <div className="flex flex-wrap items-center gap-0.5 px-3 py-1.5 border-b border-white/5">
               {/* Paragraph/Heading dropdown */}

@@ -90,10 +90,10 @@ export default function InsightsPage() {
   ];
 
   return (
-    <div className="px-4 sm:px-8">
+    <div className="px-4 sm:px-8 gradient-mesh">
       <div className="max-w-7xl mx-auto">
             {/* Gradient Hero Header */}
-            <div className="relative mb-10 overflow-hidden rounded-3xl border border-white/10">
+            <div className="relative mb-10 overflow-hidden rounded-3xl glass-card">
               <div className="absolute inset-0 bg-linear-to-br from-violet-950 via-[#0f0a1e] to-blue-950" />
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(139,92,246,0.3),transparent_60%)]" />
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(59,130,246,0.2),transparent_60%)]" />

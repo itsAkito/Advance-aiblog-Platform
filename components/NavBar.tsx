@@ -89,7 +89,7 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="fixed top-0 w-full z-50 font-headline bg-white/80 dark:bg-[#0e0e0e]/80 backdrop-blur-xl border-b border-black/5 dark:border-white/5 transition-colors">
+      <header className="fixed top-0 w-full z-50 font-headline glass-nav transition-colors">
         <nav className="flex justify-between items-center px-6 lg:px-12 h-16 w-full max-w-350 mx-auto">
           <div className="flex items-center gap-8">
             <Link href="/" className="text-xl font-bold tracking-tighter text-on-surface hover:opacity-90 transition-opacity">
@@ -266,7 +266,7 @@ export default function Navbar() {
           </div>
         </nav>
         {menuOpen && (
-          <div className="md:hidden bg-white dark:bg-surface-container-low border-t border-black/5 dark:border-white/5 px-6 py-4 space-y-2">
+          <div className="md:hidden glass-card border-t border-white/5 px-6 py-4 space-y-2">
             {PRIMARY_LINKS.map((item) => (
               <Link
                 key={item.href}

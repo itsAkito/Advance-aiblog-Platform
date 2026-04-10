@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import NavBar from "@/components/NavBar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -178,23 +177,31 @@ export default function WriterDNAPage() {
     setGenerating(true);
     setError("");
     try {
-      const res = await fetch("/api/writer-dna", { method: "POST" });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
+      const res = await fetch("/api/writer-dna", {
+        method: "POST",
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed");
       setDna(data.dna);
     } catch (e: any) {
-      setError(e.message);
+      if (e.name === "AbortError") {
+        setError("Request timed out. Please try again.");
+      } else {
+        setError(e.message);
+      }
     } finally {
       setGenerating(false);
     }
   };
 
   return (
-    <div className="min-h-screen text-on-background bg-background hero-gradient">
-      <NavBar />
-
+    <div className="text-on-background">
       {/* Hero */}
-      <section className="relative pt-28 pb-16 px-4 sm:px-8">
+      <section className="relative pb-16 px-4 sm:px-8">
         <div className="absolute inset-0 -z-10 overflow-hidden">
           <div className="absolute top-[40%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-150 h-150 gradient-blob-blue rounded-full" />
           <div className="absolute top-24 left-[16%] w-72 h-72 rounded-full gradient-blob-emerald" />
@@ -255,10 +262,13 @@ export default function WriterDNAPage() {
                 disabled={generating}
               >
                 {generating ? (
-                  <>
-                    <span className="material-symbols-outlined text-sm mr-2 animate-spin">progress_activity</span>
-                    Analyzing your posts...
-                  </>
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Analyzing your posts…
+                  </span>
                 ) : (
                   <>
                     <span className="material-symbols-outlined text-sm mr-2">auto_awesome</span>
@@ -266,6 +276,9 @@ export default function WriterDNAPage() {
                   </>
                 )}
               </Button>
+              {generating && (
+                <p className="text-xs text-on-surface-variant mt-3">This may take up to a minute while AI reads your posts.</p>
+              )}
             </Card>
           </motion.div>
         ) : (
@@ -296,7 +309,7 @@ export default function WriterDNAPage() {
 
               {/* Writing Style Card */}
               <div className="lg:col-span-2 space-y-4">
-                <Card className="bg-linear-to-br from-primary/10 to-secondary/5 border border-primary/20 overflow-hidden">
+                <Card className="glass-card-blue border-primary/20 overflow-hidden">
                   <CardContent className="p-6">
                     <Badge className="bg-primary/20 text-primary border-primary/30 text-xs mb-3">Your Style</Badge>
                     <h3 className="text-3xl font-extrabold text-on-surface mb-2">{dna.writing_style}</h3>

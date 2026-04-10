@@ -90,7 +90,7 @@ function NewTopicContent() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-background text-on-background">
+      <div className="min-h-screen bg-background gradient-mesh text-on-background">
         <NavBar />
         <div className="max-w-3xl mx-auto px-6 pt-28 space-y-4">
           <div className="h-8 w-1/2 bg-white/4 rounded animate-pulse" />
@@ -101,7 +101,7 @@ function NewTopicContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-on-background">
+    <div className="min-h-screen bg-background gradient-mesh text-on-background">
       <NavBar />
       <main className="max-w-3xl mx-auto px-6 pt-24 pb-20">
         {/* Breadcrumb */}

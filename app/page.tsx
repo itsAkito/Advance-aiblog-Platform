@@ -59,7 +59,7 @@ export default function Home() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen text-on-background bg-background hero-gradient">
+      <main className="min-h-screen text-on-background bg-background gradient-mesh">
         {/* Hero Section */}
         <section className="relative min-h-[90vh] flex flex-col items-center justify-center px-4 sm:px-8 pt-28 pb-20">
           <div className="absolute inset-0 -z-10 overflow-hidden">
@@ -177,13 +177,12 @@ export default function Home() {
             className="w-full max-w-5xl grid grid-cols-2 lg:grid-cols-4 gap-4 px-2 mt-16"
           >
             {[
-              { value: publicStats?.display.activeCreators || "0", label: "Active Creators", gradient: "from-blue-500/10 to-cyan-500/5", border: "hover:border-primary/30", glow: "hover:shadow-primary/10" },
-              { value: publicStats?.display.syntheticPosts || "0", label: "Published Posts", gradient: "from-violet-500/10 to-purple-500/5", border: "hover:border-violet-500/30", glow: "hover:shadow-violet-500/10" },
-              { value: publicStats?.display.monthlyReads || "0", label: "Monthly Reads", gradient: "from-emerald-500/10 to-teal-500/5", border: "hover:border-emerald-500/30", glow: "hover:shadow-emerald-500/10" },
-              { value: publicStats?.display.industryMentors || "0", label: "Industry Mentors", gradient: "from-pink-500/10 to-rose-500/5", border: "hover:border-pink-500/30", glow: "hover:shadow-pink-500/10" },
+              { value: publicStats?.display.activeCreators || "0", label: "Active Creators", glass: "glass-card-blue" },
+              { value: publicStats?.display.syntheticPosts || "0", label: "Published Posts", glass: "glass-card-purple" },
+              { value: publicStats?.display.monthlyReads || "0", label: "Monthly Reads", glass: "glass-card-emerald" },
+              { value: publicStats?.display.industryMentors || "0", label: "Industry Mentors", glass: "glass-card-pink" },
             ].map((stat) => (
-              <Card key={stat.label} className={`relative overflow-hidden backdrop-blur-xl border border-black/5 dark:border-white/10 text-center ${stat.border} hover:bg-primary/5 transition-all duration-300 group shadow-sm hover:shadow-lg ${stat.glow} hover:-translate-y-0.5`}>
-                <div className={`absolute inset-0 bg-linear-to-br ${stat.gradient} opacity-60`} />
+              <Card key={stat.label} className={`${stat.glass} relative overflow-hidden text-center transition-all duration-300 group hover:-translate-y-0.5`}>
                 <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white/20 to-transparent" />
                 <CardContent className="relative p-6">
                   <span className="text-3xl sm:text-4xl font-extrabold font-headline block mb-2 group-hover:text-primary transition-colors">{stat.value}</span>
@@ -213,7 +212,7 @@ export default function Home() {
               {featuredPosts.length > 0 ? (
                 <>
                   {/* Card 1 - Large */}
-                  <Link href={`/blog/${featuredPosts[0].slug || featuredPosts[0].id}`} className="relative group overflow-hidden rounded-2xl bg-surface-container-low border border-outline-variant/10 h-105 hover:border-primary/20 transition-all block">
+                  <Link href={`/blog/${featuredPosts[0].slug || featuredPosts[0].id}`} className="relative group overflow-hidden rounded-2xl glass-card h-105 hover:border-primary/20 transition-all block">
                     {featuredPosts[0].cover_image_url && (
                       <Image
                         src={featuredPosts[0].cover_image_url}
@@ -259,7 +258,7 @@ export default function Home() {
                   {/* Right column - stacked cards */}
                   <div className="flex flex-col gap-6">
                     {featuredPosts.slice(1, 3).map((post) => (
-                      <Link key={post.id} href={`/blog/${post.slug || post.id}`} className="relative group overflow-hidden rounded-2xl bg-surface-container-low border border-outline-variant/10 h-50 hover:border-primary/20 transition-all block">
+                      <Link key={post.id} href={`/blog/${post.slug || post.id}`} className="relative group overflow-hidden rounded-2xl glass-card h-50 hover:border-primary/20 transition-all block">
                         {post.cover_image_url && (
                           <Image
                             src={post.cover_image_url}
@@ -290,7 +289,7 @@ export default function Home() {
                       </Link>
                     ))}
                     {featuredPosts.length < 3 && (
-                      <div className="relative overflow-hidden rounded-2xl bg-surface-container-low border border-outline-variant/10 h-50 flex items-center justify-center">
+                      <div className="relative overflow-hidden rounded-2xl glass-card h-50 flex items-center justify-center">
                         <p className="text-on-surface-variant text-sm">More stories coming soon</p>
                       </div>
                     )}
@@ -313,7 +312,7 @@ export default function Home() {
         {mounted && isAuthenticated && (
           <div className="px-4 sm:px-8 pb-6">
             <div className="max-w-7xl mx-auto">
-              <div className="rounded-2xl border border-black/5 dark:border-white/8 overflow-hidden bg-primary/5 dark:bg-white/[0.03]">
+              <div className="rounded-2xl overflow-hidden glass-card">
                 <div className="px-6 py-4 flex flex-wrap items-center gap-6">
                   <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/60">Your Library</span>
                   <div className="flex items-center gap-2">
@@ -346,7 +345,7 @@ export default function Home() {
         <section className="px-4 sm:px-8 pb-10">
           <div className="max-w-7xl mx-auto">
             <div
-              className="relative overflow-hidden rounded-3xl border border-black/5 dark:border-white/10 bg-primary/[0.02] dark:bg-white/[0.03] backdrop-blur-sm p-6 sm:p-8"
+              className="relative overflow-hidden rounded-3xl glass-card p-6 sm:p-8"
             >
               <div className="absolute -left-24 top-10 h-72 w-72 rounded-full bg-primary/8 blur-3xl" />
               <div className="absolute inset-x-10 top-[46%] h-24 -translate-y-1/2 rounded-full bg-white/5 blur-2xl" />
@@ -364,7 +363,7 @@ export default function Home() {
                 </p>
 
                 <div className="mt-7 grid grid-cols-1 xl:grid-cols-12 gap-4">
-                  <div className="xl:col-span-4 rounded-2xl border border-black/5 dark:border-white/10 bg-primary/[0.03] dark:bg-white/[0.04] p-5 backdrop-blur">
+                  <div className="xl:col-span-4 rounded-2xl glass-card-blue p-5">
                     <p className="text-xs font-semibold text-primary">Quick Access</p>
                     <div className="mt-4 grid gap-3">
                       {[
@@ -375,7 +374,7 @@ export default function Home() {
                         <Link
                           key={card.title}
                           href={card.href}
-                          className="group relative overflow-hidden rounded-xl border border-black/5 dark:border-white/10 bg-primary/[0.02] dark:bg-white/[0.04] px-4 py-3 hover:border-primary/40 hover:bg-primary/5 transition-all"
+                          className="group relative overflow-hidden rounded-xl glass-card px-4 py-3 hover:border-primary/40 transition-all"
                         >
                           <div className="absolute inset-0 bg-linear-to-r from-primary/15 via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                           <div className="relative flex items-start gap-3">
@@ -396,7 +395,7 @@ export default function Home() {
                       <Link
                         key={`research-${item.id}`}
                         href={`/innovation?tab=research&story=${encodeURIComponent(item.id)}`}
-                        className="group relative overflow-hidden rounded-xl border border-black/5 dark:border-white/10 bg-primary/[0.02] dark:bg-white/[0.03] p-4 hover:border-primary/40 transition-all"
+                        className="group relative overflow-hidden rounded-xl glass-card-blue p-4 hover:border-primary/40 transition-all"
                       >
                         <div className="absolute inset-0 bg-linear-to-br from-primary/15 via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                         <p className="relative text-[10px] uppercase tracking-[0.16em] text-primary font-semibold">Research</p>
@@ -416,7 +415,7 @@ export default function Home() {
                         href={item.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="group relative overflow-hidden rounded-xl border border-black/5 dark:border-white/10 bg-primary/[0.02] dark:bg-white/[0.03] p-4 hover:border-secondary/35 transition-all"
+                        className="group relative overflow-hidden rounded-xl glass-card-purple p-4 hover:border-secondary/35 transition-all"
                       >
                         <div className="absolute inset-0 bg-linear-to-br from-white/8 via-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                         <p className="relative text-[10px] uppercase tracking-[0.16em] text-secondary font-semibold">World News</p>
@@ -434,7 +433,7 @@ export default function Home() {
                       <Link
                         key={`forum-${topic.id}`}
                         href={`/forum/topic/${topic.id}`}
-                        className="group relative overflow-hidden rounded-xl border border-black/5 dark:border-white/10 bg-primary/[0.02] dark:bg-white/[0.03] p-4 hover:border-tertiary/35 transition-all"
+                        className="group relative overflow-hidden rounded-xl glass-card-pink p-4 hover:border-tertiary/35 transition-all"
                       >
                         <div className="absolute inset-0 bg-linear-to-br from-tertiary/12 via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                         <p className="relative text-[10px] uppercase tracking-[0.16em] text-tertiary font-semibold flex items-center gap-1">
@@ -457,7 +456,7 @@ export default function Home() {
         {/* Blog Theme Showcase */}
         <section className="py-20 px-4 sm:px-8">
           <div className="max-w-7xl mx-auto reveal-on-scroll">
-              <div className="relative overflow-hidden border border-black/5 dark:border-white/10 bg-primary/[0.02] dark:bg-white/[0.03] backdrop-blur-sm p-6 sm:p-10 rounded-2xl">
+              <div className="relative overflow-hidden glass-card p-6 sm:p-10 rounded-2xl">
               <div className="absolute -top-20 right-8 w-64 h-64 rounded-full bg-primary/6 blur-3xl" />
               <div className="absolute -bottom-16 left-16 w-56 h-56 rounded-full bg-secondary/5 blur-3xl" />
 
@@ -552,7 +551,7 @@ export default function Home() {
 
                 <div className="space-y-6">
                   <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-lg glass-card-blue flex items-center justify-center shrink-0">
                       <span className="material-symbols-outlined text-primary text-lg">groups</span>
                     </div>
                     <div>
@@ -562,7 +561,7 @@ export default function Home() {
                   </div>
 
                   <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-lg glass-card-purple flex items-center justify-center shrink-0">
                       <span className="material-symbols-outlined text-secondary text-lg">auto_awesome</span>
                     </div>
                     <div>
@@ -579,7 +578,7 @@ export default function Home() {
 
               {/* Dynamic community review cards with curved/tilted layout */}
               <Card
-                className="relative overflow-hidden bg-surface-container-low/55 backdrop-blur border-outline-variant/10"
+                className="relative overflow-hidden glass-card border-outline-variant/10"
                 style={{
                   borderRadius: "56% 44% 52% 48% / 26% 32% 68% 74%",
                   transform: "rotate(-1.4deg)",
@@ -616,7 +615,7 @@ export default function Home() {
                   {recentReviews.slice(1, 3).map((review) => (
                     <Card
                       key={review.id}
-                      className="bg-surface-container-low/45 border-outline-variant/10 transition-transform"
+                      className="glass-card border-outline-variant/10 transition-transform"
                       style={{
                         borderRadius: "22% 78% 30% 70% / 63% 31% 69% 37%",
                         transform: review.id === recentReviews[1]?.id ? "rotate(1.6deg)" : "rotate(-1.1deg)",

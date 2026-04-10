@@ -122,7 +122,7 @@ export default function CareerPathsPage() {
   };
 
   return (
-    <div className="dark min-h-screen bg-background text-on-background font-body">
+    <div className="dark min-h-screen bg-background gradient-mesh text-on-background font-body">
       <AdminSideNav activePage="career-paths" />
       <AdminTopNav activePage="career-paths" />
 

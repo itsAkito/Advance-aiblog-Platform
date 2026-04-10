@@ -230,7 +230,7 @@ export default function AdminPage() {
   ];
 
   return (
-    <div className="dark min-h-screen bg-background text-on-background font-body">
+    <div className="dark min-h-screen bg-background gradient-mesh text-on-background font-body">
       <AdminSideNav activePage="overview" />
       <AdminTopNav activePage="overview" />
 
@@ -393,7 +393,7 @@ export default function AdminPage() {
               </h3>
               <div className="space-y-4">
                 {topCreators.map((creator, idx) => (
-                  <div key={`creator-${idx}`} className="flex items-center gap-3 p-3 rounded-lg bg-white/3 border border-white/10 hover:bg-white/8 hover:border-primary/20 transition-all">
+                  <div key={`creator-${idx}`} className="flex items-center gap-3 p-3 rounded-lg glass-card hover:border-primary/20 transition-all">
                     <Avatar className="h-10 w-10 rounded-lg">
                       <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${creator.name}`} />
                       <AvatarFallback className="rounded-lg">{creator.name.charAt(0)}</AvatarFallback>
@@ -412,7 +412,7 @@ export default function AdminPage() {
               <Separator className="my-6" />
 
               {/* Node Network Mini */}
-              <div className="p-4 rounded-lg bg-white/3 border border-white/10">
+              <div className="p-4 rounded-lg glass-card">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="material-symbols-outlined text-primary text-sm">hub</span>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Node Network</span>

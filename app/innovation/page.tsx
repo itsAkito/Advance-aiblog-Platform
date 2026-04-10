@@ -317,11 +317,11 @@ export default function InnovationPage() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-[#0f0a1e] pt-20 pb-24 text-white">
+      <main className="min-h-screen bg-background gradient-mesh pt-20 pb-24 text-white">
 
         {/* Gradient Hero Banner */}
         <div className="relative mb-0 overflow-hidden border-b border-white/10">
-          <div className="absolute inset-0 bg-linear-to-br from-violet-950 via-[#0f0a1e] to-indigo-950" />
+          <div className="absolute inset-0 glass-card rounded-none" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(139,92,246,0.25),transparent_60%)]" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(59,130,246,0.2),transparent_60%)]" />
           <div className="absolute inset-0 opacity-[0.12]"
@@ -433,7 +433,7 @@ export default function InnovationPage() {
                 </Link>
               </div>
 
-              <div className="relative overflow-hidden rounded-2xl border border-violet-500/20 bg-linear-to-br from-violet-950 to-[#13112b] p-5">
+              <div className="relative overflow-hidden rounded-2xl glass-card-purple p-5">
                 <div className="absolute top-0 right-0 h-24 w-24 rounded-full bg-violet-500/10 blur-2xl" />
                 <div className="relative">
                   <div className="mb-3 rounded-lg bg-violet-500/15 w-fit p-2">
@@ -576,7 +576,7 @@ export default function InnovationPage() {
                   </div>
 
                   {feed?.featured && (
-                    <div className="rounded-2xl border border-blue-500/20 bg-linear-to-br from-blue-950/50 to-[#13112b] p-6">
+                    <div className="rounded-2xl glass-card-blue p-6">
                       <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-300">Featured Breakthrough</span>
                       <h3 className="mt-3 text-xl font-bold text-white">{feed.featured.title}</h3>
                       <p className="mt-2 line-clamp-4 text-sm text-zinc-300">{feed.featured.summary}</p>
@@ -730,7 +730,7 @@ export default function InnovationPage() {
               </div>
 
               {feed?.featured && (
-                <div className="relative overflow-hidden rounded-2xl border border-blue-500/20 bg-linear-to-br from-blue-950/60 to-[#13112b] p-5">
+                <div className="relative overflow-hidden rounded-2xl glass-card-blue p-5">
                   <div className="absolute top-0 right-0 h-20 w-20 rounded-full bg-blue-500/10 blur-xl" />
                   <div className="relative">
                     <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-300 mb-2">Featured Breakthrough</p>

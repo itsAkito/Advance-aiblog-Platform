@@ -338,7 +338,7 @@ function PricingPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background gradient-mesh">
       <Navbar />
 
       {/* ─── Hero ─── */}

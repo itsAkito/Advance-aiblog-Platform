@@ -172,7 +172,7 @@ export default function TopicPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background text-on-background">
+      <div className="min-h-screen bg-background gradient-mesh text-on-background">
         <NavBar />
         <div className="max-w-4xl mx-auto px-6 pt-28 pb-20 space-y-4">
           <div className="h-8 w-2/3 rounded bg-white/4 animate-pulse" />
@@ -187,7 +187,7 @@ export default function TopicPage() {
 
   if (!topic) {
     return (
-      <div className="min-h-screen bg-background text-on-background">
+      <div className="min-h-screen bg-background gradient-mesh text-on-background">
         <NavBar />
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <span className="material-symbols-outlined text-6xl text-on-surface-variant">forum</span>
@@ -199,7 +199,7 @@ export default function TopicPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-on-background">
+    <div className="min-h-screen bg-background gradient-mesh text-on-background">
       <NavBar />
 
       <main className="max-w-4xl mx-auto px-6 pt-24 pb-20">

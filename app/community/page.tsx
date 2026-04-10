@@ -539,7 +539,7 @@ function CommunityContent() {
       <div className="flex min-h-screen bg-background">
         <SideNavBar activePage="community" />
 
-        <main className="flex-1 lg:ml-64 pt-24 pb-20 px-4 sm:px-8">
+        <main className="flex-1 lg:ml-64 pt-24 pb-20 px-4 sm:px-8 gradient-mesh">
           <div className="max-w-5xl mx-auto w-full">
             {/* Header */}
             <div className="mb-10">
@@ -618,7 +618,7 @@ function CommunityContent() {
                 </TabsList>
               </Tabs>
 
-              <Card className="mt-6 bg-surface-container border-outline-variant/10 rounded-2xl">
+              <Card className="mt-6 glass-card rounded-2xl">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div>
@@ -682,7 +682,7 @@ function CommunityContent() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {reviews.slice(0, 4).map((review) => (
-                      <Card key={review.id} className="bg-background/40 border-outline-variant/20">
+                      <Card key={review.id} className="glass-card">
                         <CardContent className="p-4 space-y-2">
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
@@ -718,7 +718,7 @@ function CommunityContent() {
               <div className="lg:col-span-2 space-y-5">
                 {loading ? (
                   Array.from({ length: 3 }).map((_, i) => (
-                    <Card key={i} className="bg-surface-container border-outline-variant/10 rounded-2xl overflow-hidden">
+                    <Card key={i} className="glass-card rounded-2xl overflow-hidden">
                       <CardHeader className="p-5 pb-3">
                         <div className="flex items-center gap-3">
                           <Skeleton className="h-9 w-9 rounded-full bg-surface-container-high" />
@@ -744,7 +744,7 @@ function CommunityContent() {
                     const blogTheme = getThemeById(post.blog_theme || "default");
                     return (
                     <Link key={post.id} href={`/blog/${post.slug || post.id}`} className="block group">
-                      <Card className="bg-surface-container border-outline-variant/10 rounded-2xl overflow-hidden hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300" style={{"--card-accent": accentColor} as React.CSSProperties}>
+                      <Card className="glass-card rounded-2xl overflow-hidden hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300" style={{"--card-accent": accentColor} as React.CSSProperties}>
                         {/* Per-user accent top stripe */}
                         <div className="h-0.5 w-0 group-hover:w-full transition-all duration-500 rounded-t-2xl" style={{background: `linear-gradient(90deg, ${accentColor}88, ${accentColor}22)`}} />
                         {/* Author Header */}
@@ -911,7 +911,7 @@ function CommunityContent() {
                     );
                   })
                 ) : (
-                  <Card className="bg-surface-container border-outline-variant/10 rounded-2xl">
+                  <Card className="glass-card rounded-2xl">
                     <CardContent className="flex flex-col items-center justify-center py-20">
                       <div className="w-16 h-16 rounded-2xl bg-primary/5 flex items-center justify-center mb-4">
                         <span className="material-symbols-outlined text-3xl text-on-surface-variant/40">forum</span>
@@ -931,7 +931,7 @@ function CommunityContent() {
 
               {/* Right Sidebar */}
               <div className="space-y-6 hidden lg:block">
-                <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl shadow-lg shadow-black/20">
+                <Card className="glass-card-blue rounded-2xl">
                   <CardHeader className="pb-3">
                     <div className="flex items-center gap-2">
                       <span className="material-symbols-outlined text-primary text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
@@ -962,7 +962,7 @@ function CommunityContent() {
                 </Card>
 
                 {/* Trending Topics */}
-                <Card className="bg-surface-container border-outline-variant/10 rounded-2xl">
+                <Card className="glass-card rounded-2xl">
                   <CardHeader className="pb-3">
                     <div className="flex items-center gap-2">
                       <span className="material-symbols-outlined text-primary text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>trending_up</span>
@@ -990,7 +990,7 @@ function CommunityContent() {
                 </Card>
 
                 {/* AI Pulse Insight */}
-                <Card className="bg-linear-to-br from-surface-container to-secondary-container/10 border-secondary/10 rounded-2xl overflow-hidden relative group">
+                <Card className="glass-card-purple rounded-2xl overflow-hidden relative group">
                   <div className="absolute -right-6 -top-6 w-28 h-28 bg-secondary/10 blur-3xl group-hover:bg-secondary/20 transition-all duration-500" />
                   <CardHeader className="pb-2 relative">
                     <div className="flex items-center gap-2">
@@ -1009,7 +1009,7 @@ function CommunityContent() {
                 </Card>
 
                 {/* Community Stats */}
-                <Card className="bg-surface-container border-outline-variant/10 rounded-2xl">
+                <Card className="glass-card rounded-2xl">
                   <CardHeader className="pb-2">
                     <h3 className="font-headline text-sm font-bold text-on-surface flex items-center gap-2">
                       <span className="material-symbols-outlined text-primary text-lg">groups</span>
@@ -1035,7 +1035,7 @@ function CommunityContent() {
                 </Card>
 
                 {/* Upgrade Card */}
-                <Card className="bg-surface-container border-outline-variant/10 rounded-2xl">
+                <Card className="glass-card rounded-2xl">
                   <CardContent className="p-5 text-center">
                     <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center mx-auto mb-3">
                       <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>work</span>
@@ -1075,7 +1075,7 @@ function CommunityContent() {
                   </CardContent>
                 </Card>
 
-                <Card className="bg-linear-to-br from-primary/5 to-primary/10 border-primary/10 rounded-2xl">
+                <Card className="glass-card-blue rounded-2xl">
                   <CardContent className="p-5 text-center">
                     <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
                       <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>description</span>

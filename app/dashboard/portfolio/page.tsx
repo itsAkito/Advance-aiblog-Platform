@@ -102,7 +102,7 @@ export default function PortfolioPage() {
               </Card>
             ) : (
               <div className="space-y-6">
-                <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl">
+                <Card className="glass-card rounded-2xl">
                   <CardContent className="p-6">
                     <h2 className="text-xl font-bold text-on-surface">{data.profile?.name || 'Your Portfolio'}</h2>
                     <p className="text-sm text-on-surface-variant mt-2">{data.profile?.bio || 'Add a profile bio to strengthen your public portfolio.'}</p>
@@ -117,7 +117,7 @@ export default function PortfolioPage() {
                 </Card>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <Card className="lg:col-span-2 bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl">
+                  <Card className="lg:col-span-2 glass-card rounded-2xl">
                     <CardHeader>
                       <h3 className="font-bold text-on-surface">Top Performing Posts</h3>
                     </CardHeader>
@@ -139,7 +139,7 @@ export default function PortfolioPage() {
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl">
+                  <Card className="glass-card rounded-2xl">
                     <CardHeader>
                       <h3 className="font-bold text-on-surface">Milestones</h3>
                     </CardHeader>
