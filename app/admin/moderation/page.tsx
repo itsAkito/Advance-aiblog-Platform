@@ -46,6 +46,30 @@ type PendingReview = {
   author: { id: string; name: string; email?: string; avatar_url?: string };
 };
 
+type ModerationReport = {
+  id: string;
+  entity_type: "post" | "comment" | "user";
+  entity_id: string;
+  reason: string;
+  status: "open" | "reviewing" | "resolved" | "dismissed";
+  created_at: string;
+};
+
+type SoftDeletedPost = {
+  id: string;
+  title: string;
+  author_id?: string | null;
+  soft_deleted_at?: string | null;
+};
+
+type SoftDeletedComment = {
+  id: string;
+  post_id?: string | null;
+  user_id?: string | null;
+  content: string;
+  soft_deleted_at?: string | null;
+};
+
 export default function ModerationPage() {
   const { user, isAdmin, loading } = useAuth();
   const router = useRouter();
@@ -54,13 +78,18 @@ export default function ModerationPage() {
   const deepLinkedCommentId = searchParams.get("commentId");
   const deepLinkedTab = searchParams.get("tab");
 
-  const [activeTab, setActiveTab] = useState<"posts" | "comments" | "reviews">("posts");
+  const [activeTab, setActiveTab] = useState<"posts" | "comments" | "reviews" | "reports">("posts");
   const [pendingPosts, setPendingPosts] = useState<PendingPost[]>([]);
   const [pendingComments, setPendingComments] = useState<PendingComment[]>([]);
   const [pendingReviews, setPendingReviews] = useState<PendingReview[]>([]);
+  const [reports, setReports] = useState<ModerationReport[]>([]);
+  const [softDeletedPosts, setSoftDeletedPosts] = useState<SoftDeletedPost[]>([]);
+  const [softDeletedComments, setSoftDeletedComments] = useState<SoftDeletedComment[]>([]);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
   const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [selectedReportStatus, setSelectedReportStatus] = useState<"open" | "reviewing" | "resolved" | "dismissed">("open");
   const [fetching, setFetching] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string>("");
@@ -80,10 +109,12 @@ export default function ModerationPage() {
   const fetchModerationData = useCallback(async () => {
     try {
       setError("");
-      const [postsRes, commentsRes, reviewsRes] = await Promise.all([
+      const [postsRes, commentsRes, reviewsRes, reportsRes, queueRes] = await Promise.all([
         fetch("/api/admin/moderation?type=posts", { cache: "no-store" }),
         fetch("/api/admin/moderation?type=comments", { cache: "no-store" }),
         fetch("/api/admin/moderation?type=reviews", { cache: "no-store" }),
+        fetch(`/api/moderation/reports?status=${selectedReportStatus}&limit=50`, { cache: "no-store", credentials: "include" }),
+        fetch("/api/moderation/queue", { cache: "no-store", credentials: "include" }),
       ]);
 
       const postsJson = await postsRes.json();
@@ -113,6 +144,21 @@ export default function ModerationPage() {
         }
       }
 
+      if (reportsRes.ok) {
+        const reportsJson = await reportsRes.json();
+        const reportItems: ModerationReport[] = reportsJson.reports || [];
+        setReports(reportItems);
+        if (!reportItems.some((r) => r.id === selectedReportId)) {
+          setSelectedReportId(reportItems[0]?.id || null);
+        }
+      }
+
+      if (queueRes.ok) {
+        const queueJson = await queueRes.json();
+        setSoftDeletedPosts(queueJson.softDeletedPosts || []);
+        setSoftDeletedComments(queueJson.softDeletedComments || []);
+      }
+
       if (!selectedPostId && postItems.length > 0) {
         setSelectedPostId(postItems[0].id);
       }
@@ -125,7 +171,7 @@ export default function ModerationPage() {
     } finally {
       setFetching(false);
     }
-  }, [selectedCommentId, selectedPostId, selectedReviewId]);
+  }, [selectedCommentId, selectedPostId, selectedReportId, selectedReportStatus, selectedReviewId]);
 
   useEffect(() => {
     if (loading || !user || !isAdmin) return;
@@ -136,10 +182,39 @@ export default function ModerationPage() {
   }, [loading, user, isAdmin, fetchModerationData]);
 
   useEffect(() => {
-    if (deepLinkedTab === "posts" || deepLinkedTab === "comments") {
+    if (deepLinkedTab === "posts" || deepLinkedTab === "comments" || deepLinkedTab === "reports") {
       setActiveTab(deepLinkedTab);
     }
   }, [deepLinkedTab]);
+
+  const runQueueAction = async (
+    actionType: "soft_delete" | "restore" | "dismiss_report",
+    entityType: "post" | "comment" | "user",
+    entityId: string,
+    reportId?: string
+  ) => {
+    try {
+      setActionLoadingId(entityId + actionType);
+      setError("");
+      const response = await fetch('/api/moderation/actions', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actionType, entityType, entityId, reportId }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Queue moderation action failed');
+      }
+
+      await fetchModerationData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Queue moderation action failed');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
 
   useEffect(() => {
     if (!deepLinkedPostId || pendingPosts.length === 0) return;
@@ -277,9 +352,15 @@ export default function ModerationPage() {
     [pendingReviews, selectedReviewId]
   );
 
+  const selectedReport = useMemo(
+    () => reports.find((r) => r.id === selectedReportId) || null,
+    [reports, selectedReportId]
+  );
+
   const postCount = pendingPosts.length;
   const commentCount = pendingComments.length;
   const reviewCount = pendingReviews.length;
+  const reportCount = reports.length;
 
   return (
     <div className="dark min-h-screen bg-background text-on-background font-body">
@@ -311,7 +392,7 @@ export default function ModerationPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-6 gap-4 mb-6">
           <div className="glass-panel rounded-xl p-4">
             <p className="text-[10px] uppercase tracking-wider text-on-surface-variant">Pending Posts</p>
             <p className="text-2xl font-bold mt-1">{postCount}</p>
@@ -325,8 +406,12 @@ export default function ModerationPage() {
             <p className="text-2xl font-bold mt-1">{reviewCount}</p>
           </div>
           <div className="glass-panel rounded-xl p-4">
+            <p className="text-[10px] uppercase tracking-wider text-on-surface-variant">Reports</p>
+            <p className="text-2xl font-bold mt-1">{reportCount}</p>
+          </div>
+          <div className="glass-panel rounded-xl p-4">
             <p className="text-[10px] uppercase tracking-wider text-on-surface-variant">Total Queue</p>
-            <p className="text-2xl font-bold mt-1">{postCount + commentCount + reviewCount}</p>
+            <p className="text-2xl font-bold mt-1">{postCount + commentCount + reviewCount + reportCount}</p>
           </div>
           <div className="glass-panel rounded-xl p-4">
             <p className="text-[10px] uppercase tracking-wider text-on-surface-variant">Auto Refresh</p>
@@ -352,6 +437,12 @@ export default function ModerationPage() {
             className={`px-4 py-2 rounded-lg text-xs font-bold uppercase ${activeTab === "reviews" ? "bg-primary text-on-primary" : "bg-surface-container-high text-on-surface-variant"}`}
           >
             Reviews ({reviewCount})
+          </button>
+          <button
+            onClick={() => setActiveTab("reports")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase ${activeTab === "reports" ? "bg-primary text-on-primary" : "bg-surface-container-high text-on-surface-variant"}`}
+          >
+            Reports ({reportCount})
           </button>
         </div>
 
@@ -421,6 +512,43 @@ export default function ModerationPage() {
                   </button>
                 ))
               )
+            ) : activeTab === "reports" ? (
+              <>
+                <div className="glass-panel rounded-xl p-3 flex flex-wrap gap-2">
+                  {(["open", "reviewing", "resolved", "dismissed"] as const).map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => setSelectedReportStatus(status)}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase transition-colors ${
+                        selectedReportStatus === status
+                          ? "bg-primary text-on-primary"
+                          : "bg-surface-container-high text-on-surface-variant"
+                      }`}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
+
+                {reports.length === 0 ? (
+                  <div className="glass-panel rounded-xl p-6 text-sm text-on-surface-variant">No {selectedReportStatus} reports.</div>
+                ) : (
+                  reports.map((report) => (
+                    <button
+                      key={report.id}
+                      onClick={() => setSelectedReportId(report.id)}
+                      className={`w-full text-left glass-panel rounded-xl p-4 transition-all ${selectedReportId === report.id ? "border border-primary/30" : "hover:border hover:border-primary/20"}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold uppercase tracking-wide">{report.entity_type}</p>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-300">{report.status}</span>
+                      </div>
+                      <p className="text-xs text-on-surface-variant mt-2 line-clamp-2">Reason: {report.reason}</p>
+                      <p className="text-[11px] text-on-surface-variant mt-2">{new Date(report.created_at).toLocaleString()}</p>
+                    </button>
+                  ))
+                )}
+              </>
             ) : null}
           </div>
 
@@ -616,6 +744,96 @@ export default function ModerationPage() {
                 </div>
               ) : (
                 <div className="glass-panel rounded-xl p-8 text-on-surface-variant">Select a pending review to moderate.</div>
+              )
+            ) : activeTab === "reports" ? (
+              selectedReport ? (
+                <div className="glass-panel rounded-xl p-6 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <h3 className="text-xl font-bold">Moderation Report</h3>
+                    <span className="text-[10px] uppercase px-2 py-1 rounded bg-yellow-500/10 text-yellow-300">{selectedReport.status}</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-lg bg-surface-container-low p-3">
+                      <p className="text-xs text-on-surface-variant">Entity Type</p>
+                      <p className="font-semibold uppercase">{selectedReport.entity_type}</p>
+                    </div>
+                    <div className="rounded-lg bg-surface-container-low p-3">
+                      <p className="text-xs text-on-surface-variant">Entity ID</p>
+                      <p className="font-semibold break-all">{selectedReport.entity_id}</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-surface-container-low p-3">
+                    <p className="text-xs text-on-surface-variant mb-1">Reason</p>
+                    <p className="text-sm">{selectedReport.reason}</p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => runQueueAction('dismiss_report', selectedReport.entity_type, selectedReport.entity_id, selectedReport.id)}
+                      disabled={actionLoadingId === selectedReport.entity_id + 'dismiss_report'}
+                      className="px-4 py-2 rounded-lg bg-slate-500/20 text-slate-200 text-xs font-bold uppercase"
+                    >
+                      Dismiss Report
+                    </button>
+                    {(selectedReport.entity_type === 'post' || selectedReport.entity_type === 'comment') && (
+                      <button
+                        onClick={() => runQueueAction('soft_delete', selectedReport.entity_type, selectedReport.entity_id, selectedReport.id)}
+                        disabled={actionLoadingId === selectedReport.entity_id + 'soft_delete'}
+                        className="px-4 py-2 rounded-lg bg-red-500/20 text-red-200 text-xs font-bold uppercase"
+                      >
+                        Soft Delete Content
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-white/10">
+                    <div className="rounded-lg bg-surface-container-low p-3">
+                      <p className="text-xs text-on-surface-variant mb-1">Soft-deleted Posts</p>
+                      <p className="text-sm font-semibold">{softDeletedPosts.length}</p>
+                    </div>
+                    <div className="rounded-lg bg-surface-container-low p-3">
+                      <p className="text-xs text-on-surface-variant mb-1">Soft-deleted Comments</p>
+                      <p className="text-sm font-semibold">{softDeletedComments.length}</p>
+                    </div>
+                  </div>
+
+                  {(softDeletedPosts.length > 0 || softDeletedComments.length > 0) && (
+                    <div className="space-y-2">
+                      {softDeletedPosts.slice(0, 3).map((post) => (
+                        <div key={post.id} className="rounded-lg bg-surface-container-low p-3 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold truncate">{post.title}</p>
+                            <p className="text-xs text-on-surface-variant break-all">{post.id}</p>
+                          </div>
+                          <button
+                            onClick={() => runQueueAction('restore', 'post', post.id)}
+                            className="px-3 py-1.5 text-xs rounded-lg bg-green-500/20 text-green-200 font-bold uppercase"
+                          >
+                            Restore
+                          </button>
+                        </div>
+                      ))}
+                      {softDeletedComments.slice(0, 3).map((comment) => (
+                        <div key={comment.id} className="rounded-lg bg-surface-container-low p-3 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm line-clamp-1">{comment.content}</p>
+                            <p className="text-xs text-on-surface-variant break-all">{comment.id}</p>
+                          </div>
+                          <button
+                            onClick={() => runQueueAction('restore', 'comment', comment.id)}
+                            className="px-3 py-1.5 text-xs rounded-lg bg-green-500/20 text-green-200 font-bold uppercase"
+                          >
+                            Restore
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="glass-panel rounded-xl p-8 text-on-surface-variant">Select a report to moderate.</div>
               )
             ) : (
               <div className="glass-panel rounded-xl p-8 text-on-surface-variant">Select an item to review.</div>

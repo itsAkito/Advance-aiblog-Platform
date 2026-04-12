@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     let query = supabase
       .from('posts')
-      .select('id, title, slug, excerpt, status, author_id, created_at, views, ai_generated, topic, category, profiles(id, name, avatar_url)', { count: 'exact' })
+      .select('id, title, slug, excerpt, status, author_id, created_at, views, ai_generated, topic, category, profiles:profiles!posts_author_id_fkey(id, name, avatar_url)', { count: 'exact' })
       .order('created_at', { ascending: false });
 
     if (status && status !== 'all') {

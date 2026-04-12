@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     // Get theme usage counts with author details
     const { data: posts, error } = await supabase
       .from('posts')
-      .select('blog_theme, author_id, created_at, profiles(id, name, avatar_url)')
+      .select('blog_theme, author_id, created_at, profiles:profiles!posts_author_id_fkey(id, name, avatar_url)')
       .not('blog_theme', 'is', null)
       .order('created_at', { ascending: false });
 

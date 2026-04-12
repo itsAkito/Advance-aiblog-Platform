@@ -1,16 +1,34 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import Navbar from "@/components/NavBar";
 import GhostReaderPanel from "@/components/GhostReaderPanel";
+import AppToast from "@/components/ui/app-toast";
 
 import { useAuth } from "@/context/AuthContext";
 import { renderMarkdownBlocks } from "@/lib/markdown";
 import { emitLikeUpdate, subscribeLikeUpdates } from "@/lib/like-sync";
 import { BlogTheme, getThemeById, getThemeFromAny, isBuiltinTheme } from "@/lib/blog-themes";
+
+/** Maps post topic → subtle ambient gradient for dynamic theming */
+function topicAmbient(topic?: string): string {
+  if (!topic) return "";
+  const t = topic.toLowerCase();
+  if (t.includes("ai") || t.includes("machine") || t.includes("deep learning")) return "from-blue-500/6 via-cyan-500/3 to-transparent";
+  if (t.includes("web") || t.includes("frontend") || t.includes("react") || t.includes("next")) return "from-violet-500/6 via-fuchsia-500/3 to-transparent";
+  if (t.includes("career") || t.includes("job") || t.includes("interview")) return "from-amber-500/6 via-orange-500/3 to-transparent";
+  if (t.includes("design") || t.includes("ui") || t.includes("ux")) return "from-pink-500/6 via-rose-500/3 to-transparent";
+  if (t.includes("data") || t.includes("science") || t.includes("analytics")) return "from-teal-500/6 via-emerald-500/3 to-transparent";
+  if (t.includes("devops") || t.includes("cloud") || t.includes("aws") || t.includes("docker")) return "from-sky-500/6 via-indigo-500/3 to-transparent";
+  if (t.includes("mobile") || t.includes("ios") || t.includes("android")) return "from-lime-500/6 via-green-500/3 to-transparent";
+  if (t.includes("security") || t.includes("cyber") || t.includes("hack")) return "from-red-500/6 via-orange-500/3 to-transparent";
+  if (t.includes("python") || t.includes("backend")) return "from-yellow-500/6 via-green-500/3 to-transparent";
+  if (t.includes("productivity") || t.includes("tool")) return "from-indigo-500/6 via-purple-500/3 to-transparent";
+  return "from-primary/4 via-secondary/2 to-transparent";
+}
 
 interface Post {
   id: string;
@@ -45,6 +63,44 @@ interface LikerProfile {
   avatar_url?: string | null;
 }
 
+interface AuthorSummary {
+  author: {
+    id: string;
+    name: string;
+    bio?: string;
+    avatar_url?: string;
+  };
+  followerCount: number;
+  followingCount: number;
+  mutual: {
+    isFollowing: boolean;
+    followsMe: boolean;
+  };
+  recentPosts: Array<{
+    id: string;
+    title: string;
+    slug?: string;
+    created_at: string;
+    likes_count?: number;
+    views?: number;
+  }>;
+}
+
+interface CreatorAnalyticsSummary {
+  totalPosts: number;
+  totalViews: number;
+  totalLikes: number;
+  totalComments: number;
+  followerCount: number;
+  viewsToLikeRatio: number;
+  followConversionPerPost: number;
+  bestPostingTime: string;
+}
+
+interface CreatorAnalytics {
+  summary: CreatorAnalyticsSummary;
+}
+
 export default function BlogPostPage() {
   const params = useParams();
   const slug = params.slug as string;
@@ -63,6 +119,13 @@ export default function BlogPostPage() {
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
   const [resolvedTheme, setResolvedTheme] = useState<BlogTheme | null>(null);
 
+  // Author hover card state
+  const [showAuthorCard, setShowAuthorCard] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  const authorHoverRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Reviews state
   const [reviews, setReviews] = useState<Array<{
     id: string;
@@ -75,6 +138,19 @@ export default function BlogPostPage() {
   const [reviewComment, setReviewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewSuccess, setReviewSuccess] = useState("");
+  const [authorSummary, setAuthorSummary] = useState<AuthorSummary | null>(null);
+  const [creatorAnalytics, setCreatorAnalytics] = useState<CreatorAnalytics | null>(null);
+  const [toast, setToast] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
+
+  const pushToast = (message: string, tone: "success" | "error" | "info" = "info") => {
+    setToast({ message, tone });
+  };
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 2400);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   const fetchPost = useCallback(async () => {
     try {
@@ -122,6 +198,79 @@ export default function BlogPostPage() {
     }
   }, [post?.id]);
 
+  // Check if current user follows the post author
+  const checkFollowStatus = useCallback(async () => {
+    if (!user || !post?.profiles?.id) return;
+    try {
+      const res = await fetch(`/api/follows?user_id=${post.profiles.id}&type=check`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIsFollowing(data.isFollowing === true);
+      }
+    } catch {
+      // ignore
+    }
+  }, [user, post?.profiles?.id]);
+
+  const handleFollowToggle = async () => {
+    if (!user) { window.location.href = `/auth?next=/blog/${slug}`; return; }
+    if (!post?.profiles?.id) return;
+    setFollowLoading(true);
+    try {
+      const res = await fetch(`/api/follows/${post.profiles.id}`, {
+        method: isFollowing ? "DELETE" : "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) setIsFollowing(!isFollowing);
+    } catch {
+      // ignore
+    } finally {
+      setFollowLoading(false);
+    }
+  };
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    const title = post?.title || "Check out this post";
+    if (navigator.share) {
+      try { await navigator.share({ title, url }); } catch { /* cancelled */ }
+    } else {
+      await navigator.clipboard.writeText(url);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    }
+  };
+
+  const handleReportPost = async () => {
+    if (!post?.id) return;
+    const reason = window.prompt("Report reason (spam, abuse, misinformation, other):", "spam");
+    if (!reason) return;
+
+    try {
+      const response = await fetch('/api/moderation/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entityType: 'post',
+          entityId: post.id,
+          reason,
+        }),
+      });
+
+      if (response.ok) {
+        pushToast("Thanks. Your report was submitted.", "success");
+      } else {
+        const payload = await response.json().catch(() => ({}));
+        pushToast(payload.error || "Failed to submit report", "error");
+      }
+    } catch {
+      pushToast("Failed to submit report", "error");
+    }
+  };
+
   useEffect(() => {
     fetchPost();
   }, [fetchPost]);
@@ -143,6 +292,45 @@ export default function BlogPostPage() {
 
     return unsubscribe;
   }, [post]);
+
+  useEffect(() => {
+    checkFollowStatus();
+  }, [checkFollowStatus]);
+
+  useEffect(() => {
+    const authorId = post?.profiles?.id;
+    if (!authorId) return;
+
+    const fetchAuthorSummary = async () => {
+      try {
+        const response = await fetch(`/api/authors/${authorId}/summary`, { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        setAuthorSummary(data);
+      } catch (error) {
+        console.error("Failed to fetch author summary:", error);
+      }
+    };
+
+    fetchAuthorSummary();
+  }, [post?.profiles?.id]);
+
+  useEffect(() => {
+    if (!user || !post?.profiles?.id || post.profiles.id !== user.id) return;
+
+    const fetchCreatorAnalytics = async () => {
+      try {
+        const response = await fetch('/api/creator/analytics', { cache: 'no-store' });
+        if (!response.ok) return;
+        const data = await response.json();
+        setCreatorAnalytics(data);
+      } catch (error) {
+        console.error('Failed to fetch creator analytics:', error);
+      }
+    };
+
+    fetchCreatorAnalytics();
+  }, [user, post?.profiles?.id]);
 
   useEffect(() => {
     const themeId = post?.blog_theme;
@@ -182,7 +370,7 @@ export default function BlogPostPage() {
   const handleLike = async () => {
     if (!post) return;
     if (!user) {
-      alert("Please sign in to like this post");
+      pushToast("Please sign in to like this post", "info");
       return;
     }
 
@@ -214,6 +402,7 @@ export default function BlogPostPage() {
             likedByCurrentUser: false,
             source: "blog",
           });
+          pushToast("Like removed", "success");
           fetchLikers();
         } else {
           throw new Error("Failed to unlike post");
@@ -236,6 +425,7 @@ export default function BlogPostPage() {
             likedByCurrentUser: true,
             source: "blog",
           });
+          pushToast("Post liked", "success");
           fetchLikers();
         } else {
           const errData = await res.json().catch(() => ({}));
@@ -254,9 +444,9 @@ export default function BlogPostPage() {
       });
       const msg = err instanceof Error ? err.message : "Failed to toggle like";
       if (msg.includes("Unauthorized")) {
-        alert("Please sign in to like this post.");
+        pushToast("Please sign in to like this post.", "info");
       } else {
-        alert(msg);
+        pushToast(msg, "error");
       }
     }
   };
@@ -266,7 +456,7 @@ export default function BlogPostPage() {
     if (!commentContent.trim()) return;
     if (!user && (!guestName.trim() || !guestEmail.trim())) return;
     if (!post?.id) {
-      alert("Post is still loading. Please wait.");
+      pushToast("Post is still loading. Please wait.", "info");
       return;
     }
 
@@ -293,6 +483,7 @@ export default function BlogPostPage() {
         setCommentContent("");
         setCommentSuccess("Comment posted!");
         setTimeout(() => setCommentSuccess(""), 3000);
+        pushToast("Comment posted", "success");
       } else {
         let errorMessage = "Unknown error";
         try {
@@ -302,11 +493,11 @@ export default function BlogPostPage() {
           console.error("Failed to parse error response:", parseError);
           errorMessage = `Server error (${res.status}): Unable to parse error response`;
         }
-        alert(`Failed to post comment: ${errorMessage}`);
+        pushToast(`Failed to post comment: ${errorMessage}`, "error");
       }
     } catch (err) {
       console.error("Comment submission error:", err);
-      alert("Failed to post comment. Please try again.");
+      pushToast("Failed to post comment. Please try again.", "error");
     } finally {
       setSubmittingComment(false);
     }
@@ -331,8 +522,9 @@ export default function BlogPostPage() {
 
       setComments((prev) => prev.filter((c) => c.id !== commentId));
       setCommentSuccess("Comment deleted.");
+      pushToast("Comment deleted.", "success");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to delete comment");
+      pushToast(err instanceof Error ? err.message : "Failed to delete comment", "error");
     } finally {
       setDeletingCommentId(null);
     }
@@ -379,13 +571,14 @@ export default function BlogPostPage() {
         setReviewRating(5);
         setReviewSuccess("Review submitted!");
         setTimeout(() => setReviewSuccess(""), 3000);
+        pushToast("Review submitted!", "success");
         fetchReviews();
       } else {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || "Failed to submit review");
+        pushToast(data.error || "Failed to submit review", "error");
       }
     } catch {
-      alert("Failed to submit review. Please try again.");
+      pushToast("Failed to submit review. Please try again.", "error");
     } finally {
       setSubmittingReview(false);
     }
@@ -403,8 +596,35 @@ export default function BlogPostPage() {
     return (
       <>
         <Navbar />
-        <main className="min-h-screen bg-background pt-24 px-4 flex items-center justify-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-700 border-t-primary"></div>
+        <main className="min-h-screen bg-background pt-20 pb-16">
+          {/* Cover skeleton */}
+          <div className="w-full h-96 bg-surface-container animate-pulse" />
+          <div className="max-w-3xl mx-auto px-4 sm:px-8 -mt-20 relative z-20">
+            {/* Title skeleton */}
+            <div className="mt-4 space-y-3">
+              <div className="h-3 w-24 rounded-full bg-surface-container-high animate-pulse" />
+              <div className="h-9 w-4/5 rounded-xl bg-surface-container-high animate-pulse" />
+              <div className="h-9 w-3/5 rounded-xl bg-surface-container-high animate-pulse" />
+            </div>
+            {/* Author skeleton */}
+            <div className="flex items-center gap-3 mt-6 pb-6 border-b border-outline-variant/10">
+              <div className="w-10 h-10 rounded-full bg-surface-container-high animate-pulse shrink-0" />
+              <div className="space-y-2">
+                <div className="h-3 w-28 rounded-full bg-surface-container-high animate-pulse" />
+                <div className="h-2 w-20 rounded-full bg-surface-container animate-pulse" />
+              </div>
+            </div>
+            {/* Content skeleton */}
+            <div className="mt-10 space-y-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className={`h-3 rounded-full bg-surface-container animate-pulse`} style={{ width: `${85 + (i % 3) * 5}%` }} />
+              ))}
+              <div className="h-32 rounded-2xl bg-surface-container animate-pulse mt-6" />
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={`b${i}`} className="h-3 rounded-full bg-surface-container animate-pulse" style={{ width: `${75 + (i % 4) * 6}%` }} />
+              ))}
+            </div>
+          </div>
         </main>
       </>
     );
@@ -433,9 +653,13 @@ export default function BlogPostPage() {
     <>
       <Navbar />
       <main
-        className={`min-h-screen ${theme.fontClass} pt-20 pb-16 ${!isCustom ? theme.bgClass : ""}`}
+        className={`min-h-screen ${theme.fontClass} pt-20 pb-16 ${!isCustom ? theme.bgClass : ""} relative`}
         style={isCustom ? { backgroundColor: p.background, color: p.text } : undefined}
       >
+        {/* Dynamic ambient gradient based on post topic */}
+        {post.topic && !isCustom && (
+          <div className={`pointer-events-none fixed inset-0 -z-10 bg-linear-to-b ${topicAmbient(post.topic)}`} />
+        )}
         {/* Cover Image */}
         {post.cover_image_url && (
           <div className="w-full h-100 relative overflow-hidden">
@@ -444,7 +668,8 @@ export default function BlogPostPage() {
           </div>
         )}
 
-        <article className="max-w-3xl mx-auto px-4 sm:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-8">
+        <article>
           {/* Header */}
           <header className={`${post.cover_image_url ? "-mt-24 relative z-20" : "mt-8"}`}>
             <div className="flex items-center gap-3 mb-4">
@@ -478,19 +703,103 @@ export default function BlogPostPage() {
             {/* Author & Meta */}
             <div className={`flex items-center justify-between flex-wrap gap-4 pb-8 border-b border-current/10`}>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden">
-                  {post.profiles?.avatar_url ? (
-                    <Image src={post.profiles.avatar_url} alt="" width={40} height={40} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className={`w-full h-full flex items-center justify-center ${!isCustom ? theme.textClass : ""}`} style={isCustom ? { color: p.text } : undefined}>
-                      <span className="material-symbols-outlined">person</span>
+                {/* Author avatar with hover card */}
+                <div
+                  className="relative"
+                  onMouseEnter={() => {
+                    if (authorHoverRef.current) clearTimeout(authorHoverRef.current);
+                    setShowAuthorCard(true);
+                  }}
+                  onMouseLeave={() => {
+                    authorHoverRef.current = setTimeout(() => setShowAuthorCard(false), 200);
+                  }}
+                >
+                  <div className="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden cursor-pointer ring-2 ring-transparent hover:ring-primary/40 transition-all">
+                    {post.profiles?.avatar_url ? (
+                      <Image src={post.profiles.avatar_url} alt="" width={40} height={40} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className={`w-full h-full flex items-center justify-center ${!isCustom ? theme.textClass : ""}`} style={isCustom ? { color: p.text } : undefined}>
+                        <span className="material-symbols-outlined">person</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Hover Author Card */}
+                  {showAuthorCard && post.profiles && (
+                    <div
+                      className="absolute left-0 top-12 z-50 w-56 glass-panel rounded-2xl p-4 shadow-2xl border border-outline-variant/20 animate-in fade-in-0 slide-in-from-top-2 duration-200"
+                      onMouseEnter={() => {
+                        if (authorHoverRef.current) clearTimeout(authorHoverRef.current);
+                        setShowAuthorCard(true);
+                      }}
+                      onMouseLeave={() => {
+                        authorHoverRef.current = setTimeout(() => setShowAuthorCard(false), 200);
+                      }}
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden shrink-0">
+                          {post.profiles.avatar_url ? (
+                            <Image src={post.profiles.avatar_url} alt="" width={40} height={40} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-on-surface-variant">
+                              <span className="material-symbols-outlined text-sm">person</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-sm text-on-surface truncate">{post.profiles.name}</p>
+                          <p className="text-[10px] text-on-surface-variant">Article Author</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleFollowToggle}
+                          disabled={followLoading}
+                          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-bold transition-all ${
+                            isFollowing
+                              ? "bg-primary/10 text-primary border border-primary/30 hover:bg-red-500/10 hover:text-red-500 hover:border-red-400/30"
+                              : "bg-primary text-white hover:bg-primary/90"
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: isFollowing ? "'FILL' 1" : "'FILL' 0" }}>
+                            {isFollowing ? "person_check" : "person_add"}
+                          </span>
+                          {followLoading ? "..." : isFollowing ? "Following" : "Follow"}
+                        </button>
+                        <button
+                          onClick={handleShare}
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold bg-surface-container-high text-on-surface hover:bg-surface-container transition-all"
+                        >
+                          <span className="material-symbols-outlined text-sm">{shareCopied ? "check" : "share"}</span>
+                          {shareCopied ? "Copied!" : "Share"}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
+
                 <div>
                   <span className={`font-semibold text-sm ${!isCustom ? theme.headingClass : ""}`} style={isCustom ? { color: p.heading || p.text } : undefined}>{post.profiles?.name || "Unknown"}</span>
                   <span className={`block text-xs ${!isCustom ? theme.textClass : ""}`} style={isCustom ? { color: p.mutedText || p.text } : undefined}>{formatDate(post.created_at)}</span>
                 </div>
+
+                {/* Visible Follow Button */}
+                {user && post.profiles?.id && post.profiles.id !== user.id && (
+                  <button
+                    onClick={handleFollowToggle}
+                    disabled={followLoading}
+                    className={`ml-2 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                      isFollowing
+                        ? "bg-primary/10 text-primary border border-primary/30 hover:bg-red-500/10 hover:text-red-500 hover:border-red-400/30"
+                        : "bg-primary text-white hover:bg-primary/90"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: isFollowing ? "'FILL' 1" : "'FILL' 0" }}>
+                      {isFollowing ? "person_check" : "person_add"}
+                    </span>
+                    {followLoading ? "..." : isFollowing ? "Following" : "Follow"}
+                  </button>
+                )}
               </div>
               <div className={`flex items-center gap-4 text-xs ${!isCustom ? theme.textClass : ""}`} style={isCustom ? { color: p.mutedText || p.text } : undefined}>
                 <span className="flex items-center gap-1">
@@ -505,6 +814,10 @@ export default function BlogPostPage() {
                   <span className="material-symbols-outlined text-sm">chat_bubble</span>
                   {post.comments_count || comments.length} comments
                 </span>
+                <button onClick={handleReportPost} className="flex items-center gap-1 text-amber-400 hover:text-amber-300 transition-colors">
+                  <span className="material-symbols-outlined text-sm">flag</span>
+                  Report
+                </button>
               </div>
               {likers.length > 0 && (
                 <p className={`mt-3 text-xs ${!isCustom ? theme.textClass : ""}`} style={isCustom ? { color: p.mutedText || p.text } : undefined}>
@@ -523,10 +836,10 @@ export default function BlogPostPage() {
           ) : (
             <>
               <div className={`mt-10 max-w-none leading-relaxed relative ${!isCustom ? `${theme.proseClass} ${theme.textClass}` : ""}`} style={isCustom ? { color: p.text } : undefined}>
-                <div className="line-clamp-[8] overflow-hidden">
+                <div className="line-clamp-8 overflow-hidden">
                   {renderMarkdownBlocks(post.content, theme)}
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t to-transparent pointer-events-none" style={isCustom ? { backgroundImage: `linear-gradient(to top, ${p.background}, transparent)` } : undefined}></div>
+                <div className="absolute bottom-0 left-0 right-0 h-40 bg-linear-to-t to-transparent pointer-events-none" style={isCustom ? { backgroundImage: `linear-gradient(to top, ${p.background}, transparent)` } : undefined}></div>
               </div>
               <div className="mt-8 glass-panel rounded-2xl p-8 text-center">
                 <span className="material-symbols-outlined text-5xl text-primary mb-4 block">lock</span>
@@ -777,7 +1090,104 @@ export default function BlogPostPage() {
           </>
           )}
         </article>
+
+        <aside className="hidden xl:block pt-8">
+          <div className="sticky top-24 space-y-4">
+            <div className="glass-panel rounded-2xl p-5 border border-outline-variant/20">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-11 h-11 rounded-full bg-surface-container-high overflow-hidden">
+                  {authorSummary?.author?.avatar_url ? (
+                    <Image src={authorSummary.author.avatar_url} alt={authorSummary.author.name || "Author"} width={44} height={44} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-on-surface-variant">
+                      <span className="material-symbols-outlined text-sm">person</span>
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-on-surface truncate">{authorSummary?.author?.name || post.profiles?.name || "Author"}</p>
+                  <p className="text-[11px] text-on-surface-variant">Creator profile</p>
+                </div>
+              </div>
+
+              {authorSummary?.author?.bio && (
+                <p className="text-xs text-on-surface-variant leading-relaxed mb-4 line-clamp-3">{authorSummary.author.bio}</p>
+              )}
+
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <div className="rounded-xl bg-surface-container px-3 py-2 text-center">
+                  <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Followers</p>
+                  <p className="text-sm font-bold text-on-surface">{authorSummary?.followerCount ?? 0}</p>
+                </div>
+                <div className="rounded-xl bg-surface-container px-3 py-2 text-center">
+                  <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Following</p>
+                  <p className="text-sm font-bold text-on-surface">{authorSummary?.followingCount ?? 0}</p>
+                </div>
+              </div>
+
+              {authorSummary?.mutual?.followsMe && (
+                <p className="text-[11px] text-emerald-400 font-semibold mb-3">Follows you back</p>
+              )}
+
+              {user && post.profiles?.id && post.profiles.id !== user.id && (
+                <button
+                  onClick={handleFollowToggle}
+                  disabled={followLoading}
+                  className={`w-full h-9 rounded-lg text-xs font-bold transition-all ${
+                    isFollowing
+                      ? "bg-primary/10 text-primary border border-primary/30"
+                      : "bg-primary text-white hover:bg-primary/90"
+                  }`}
+                >
+                  {followLoading ? "Updating..." : isFollowing ? "Following" : "Follow Author"}
+                </button>
+              )}
+            </div>
+
+            <div className="glass-panel rounded-2xl p-5 border border-outline-variant/20">
+              <p className="text-sm font-bold text-on-surface mb-3">Recent Posts</p>
+              <div className="space-y-3">
+                {(authorSummary?.recentPosts || []).map((entry) => (
+                  <Link key={entry.id} href={`/blog/${entry.slug || entry.id}`} className="block rounded-lg bg-surface-container px-3 py-2 hover:bg-surface-container-high transition-colors">
+                    <p className="text-xs font-semibold text-on-surface line-clamp-2">{entry.title}</p>
+                    <p className="text-[10px] text-on-surface-variant mt-1">{formatDate(entry.created_at)}</p>
+                  </Link>
+                ))}
+                {(!authorSummary?.recentPosts || authorSummary.recentPosts.length === 0) && (
+                  <p className="text-xs text-on-surface-variant">No recent posts yet.</p>
+                )}
+              </div>
+            </div>
+
+            {user && post.profiles?.id === user.id && creatorAnalytics?.summary && (
+              <div className="glass-panel rounded-2xl p-5 border border-outline-variant/20">
+                <p className="text-sm font-bold text-on-surface mb-3">Creator Analytics</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-lg bg-surface-container p-2">
+                    <p className="text-[10px] text-on-surface-variant">Views/Like</p>
+                    <p className="text-sm font-bold text-on-surface">{creatorAnalytics.summary.viewsToLikeRatio}</p>
+                  </div>
+                  <div className="rounded-lg bg-surface-container p-2">
+                    <p className="text-[10px] text-on-surface-variant">Follow Conv.</p>
+                    <p className="text-sm font-bold text-on-surface">{creatorAnalytics.summary.followConversionPerPost}</p>
+                  </div>
+                  <div className="rounded-lg bg-surface-container p-2 col-span-2">
+                    <p className="text-[10px] text-on-surface-variant">Best Posting Time</p>
+                    <p className="text-sm font-bold text-on-surface">{creatorAnalytics.summary.bestPostingTime}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </aside>
+        </div>
       </main>
+
+      <AppToast
+        visible={Boolean(toast)}
+        message={toast?.message || ""}
+        tone={toast?.tone || "info"}
+      />
     </>
   );
 }

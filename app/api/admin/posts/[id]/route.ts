@@ -206,7 +206,7 @@ export async function PATCH(
       .from('posts')
       .update(updateData)
       .eq('id', id)
-      .select('id, title, slug, excerpt, status, author_id, created_at, views, ai_generated, topic, category, profiles(id, name, avatar_url)')
+      .select('id, title, slug, excerpt, status, author_id, created_at, views, ai_generated, topic, category, profiles:profiles!posts_author_id_fkey(id, name, avatar_url)')
       .single();
 
     if (
@@ -225,7 +225,7 @@ export async function PATCH(
         .from('posts')
         .update(fallback1)
         .eq('id', id)
-        .select('id, title, slug, excerpt, status, author_id, created_at, views, ai_generated, topic, profiles(id, name, avatar_url)')
+        .select('id, title, slug, excerpt, status, author_id, created_at, views, ai_generated, topic, profiles:profiles!posts_author_id_fkey(id, name, avatar_url)')
         .single();
 
       // If still failing due to approval columns, strip those too
@@ -245,7 +245,7 @@ export async function PATCH(
           .from('posts')
           .update(fallback2)
           .eq('id', id)
-          .select('id, title, slug, excerpt, status, author_id, created_at, views, ai_generated, topic, profiles(id, name, avatar_url)')
+          .select('id, title, slug, excerpt, status, author_id, created_at, views, ai_generated, topic, profiles:profiles!posts_author_id_fkey(id, name, avatar_url)')
           .single();
       }
     }

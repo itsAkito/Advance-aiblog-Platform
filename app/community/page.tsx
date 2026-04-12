@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import AppToast from "@/components/ui/app-toast";
 import { useAuth } from "@/context/AuthContext";
 
 const SideNavBar = dynamic(() => import("@/components/SideNavBar"), { ssr: false });
@@ -128,8 +129,22 @@ function CommunityContent() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState("");
   const [reviewSuccess, setReviewSuccess] = useState("");
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMorePosts, setHasMorePosts] = useState(false);
+  const [loadingMorePosts, setLoadingMorePosts] = useState(false);
+  const [toast, setToast] = useState<{ message: string; tone: "success" | "error" | "info" } | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  const pushToast = (message: string, tone: "success" | "error" | "info" = "info") => {
+    setToast({ message, tone });
+  };
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 2400);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   useEffect(() => {
     const urlSearch = searchParams.get("search") || "";
@@ -138,13 +153,22 @@ function CommunityContent() {
     const fetchPosts = async () => {
       setLoading(true);
       try {
-        const params = new URLSearchParams({ limit: "20", published: "true" });
+        const params = new URLSearchParams({ limit: "20" });
         if (urlSearch) params.set("search", urlSearch);
-        const response = await fetch(`/api/posts?${params.toString()}`, { cache: "no-store" });
+        if (sortBy === "liked") {
+          params.set("sort", "likes");
+        } else if (sortBy === "viewed") {
+          params.set("sort", "views");
+        } else {
+          params.set("sort", "latest");
+        }
+        const response = await fetch(`/api/community/rankings?${params.toString()}`, { cache: "no-store" });
         if (response.ok) {
           const data = await response.json();
-          const posts = data.posts || data || [];
+          const posts = data.posts || [];
           setApiPosts(posts);
+          setNextCursor(data.pageInfo?.nextCursor || null);
+          setHasMorePosts(Boolean(data.pageInfo?.hasMore));
 
           const likedFromServer = new Set<string>();
           for (const post of posts) {
@@ -159,7 +183,46 @@ function CommunityContent() {
       }
     };
     fetchPosts();
-  }, [searchParams]);
+  }, [searchParams, sortBy]);
+
+  const loadMorePosts = async () => {
+    if (!hasMorePosts || !nextCursor || loadingMorePosts) return;
+    setLoadingMorePosts(true);
+
+    try {
+      const urlSearch = searchParams.get("search") || "";
+      const params = new URLSearchParams({ limit: "20", cursor: nextCursor });
+      if (urlSearch) params.set("search", urlSearch);
+
+      if (sortBy === "liked") {
+        params.set("sort", "likes");
+      } else if (sortBy === "viewed") {
+        params.set("sort", "views");
+      } else {
+        params.set("sort", "latest");
+      }
+
+      const response = await fetch(`/api/community/rankings?${params.toString()}`, { cache: "no-store" });
+      if (!response.ok) return;
+
+      const data = await response.json();
+      const posts = data.posts || [];
+
+      setApiPosts((current) => {
+        const map = new Map<string, ApiPost>();
+        for (const post of current) map.set(post.id, post);
+        for (const post of posts) map.set(post.id, post);
+        return Array.from(map.values());
+      });
+
+      setNextCursor(data.pageInfo?.nextCursor || null);
+      setHasMorePosts(Boolean(data.pageInfo?.hasMore));
+    } catch (error) {
+      console.error("Failed to load more posts:", error);
+    } finally {
+      setLoadingMorePosts(false);
+    }
+  };
 
   useEffect(() => {
     const fetchSidebarJobs = async () => {
@@ -242,15 +305,7 @@ function CommunityContent() {
     router.push(`/community?${params.toString()}`);
   };
 
-  const sortedPosts = [...apiPosts].sort((a, b) => {
-    if (sortBy === "liked") {
-      return (b.likes_count || 0) - (a.likes_count || 0);
-    }
-    if (sortBy === "viewed") {
-      return (b.views || 0) - (a.views || 0);
-    }
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
+  const sortedPosts = apiPosts;
 
   const trendingTopics = ["AI Writing", "Career Growth", "Tech Trends", "Productivity", "Design"];
 
@@ -334,6 +389,7 @@ function CommunityContent() {
         likedByCurrentUser: confirmedLiked,
         source: "community",
       });
+      pushToast(confirmedLiked ? "Post liked" : "Like removed", "success");
     } catch (error) {
       console.error("Failed to like post:", error);
       setLikedPosts((currentLiked) => {
@@ -364,6 +420,7 @@ function CommunityContent() {
         likedByCurrentUser: wasLiked,
         source: "community",
       });
+      pushToast("Could not update like", "error");
     }
   };
 
@@ -410,6 +467,35 @@ function CommunityContent() {
       });
     } catch (error) {
       console.error('Failed to track share:', error);
+    }
+  };
+
+  const handleReport = async (e: React.MouseEvent, post: ApiPost) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const reason = window.prompt("Report reason (spam, abuse, misinformation, other):", "spam");
+    if (!reason) return;
+
+    try {
+      const response = await fetch('/api/moderation/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entityType: 'post',
+          entityId: post.id,
+          reason,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || 'Failed to submit report');
+      }
+      pushToast("Post reported. Thank you.", "success");
+    } catch (error) {
+      console.error('Failed to report post:', error);
+      pushToast("Failed to report post", "error");
     }
   };
 
@@ -472,11 +558,13 @@ function CommunityContent() {
         next.delete(postId);
         return next;
       });
+      pushToast("Comment posted", "success");
     } catch (error) {
       setCommentErrors((current) => ({
         ...current,
         [postId]: error instanceof Error ? error.message : "Failed to post comment",
       }));
+      pushToast("Failed to post comment", "error");
     } finally {
       setCommentSubmittingPostId(null);
     }
@@ -749,32 +837,34 @@ function CommunityContent() {
                         <div className="h-0.5 w-0 group-hover:w-full transition-all duration-500 rounded-t-2xl" style={{background: `linear-gradient(90deg, ${accentColor}88, ${accentColor}22)`}} />
                         {/* Author Header */}
                         <CardHeader className="p-5 pb-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-9 w-9" style={{boxShadow: `0 0 0 2px ${accentColor}44`}}>
-                                <AvatarImage
-                                  src={post.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.profiles?.name || post.author_id}`}
-                                  alt={post.profiles?.name || "Author"}
-                                />
-                                <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                                  {(post.profiles?.name || "A").charAt(0).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="text-sm font-semibold text-on-surface">
-                                  {post.profiles?.name || "Anonymous"}
-                                </p>
-                                <p className="text-[11px] text-on-surface-variant">
-                                  {new Date(post.created_at).toLocaleDateString("en-US", {
-                                    month: "short", day: "numeric", year: "numeric"
-                                  })}
-                                </p>
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-9 w-9" style={{boxShadow: `0 0 0 2px ${accentColor}44`}}>
+                                  <AvatarImage
+                                    src={post.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.profiles?.name || post.author_id}`}
+                                    alt={post.profiles?.name || "Author"}
+                                  />
+                                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                                    {(post.profiles?.name || "A").charAt(0).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="text-sm font-semibold text-on-surface">
+                                    {post.profiles?.name || "Anonymous"}
+                                  </p>
+                                  <p className="text-[11px] text-on-surface-variant">
+                                    {new Date(post.created_at).toLocaleDateString("en-US", {
+                                      month: "short", day: "numeric", year: "numeric"
+                                    })}
+                                  </p>
+                                </div>
                               </div>
+                              {post.author_id && post.author_id !== user?.id && (
+                                <FollowButton userId={post.author_id} size="sm" className="h-8" showStatusBadge={false} />
+                              )}
                             </div>
-                            {post.author_id && post.author_id !== user?.id && (
-                              <FollowButton userId={post.author_id} size="sm" className="h-8" showStatusBadge />
-                            )}
-                            <div className="flex gap-1.5">
+                            <div className="flex flex-wrap gap-1.5">
                               {post.ai_generated && (
                                 <Badge className="bg-secondary/10 text-secondary border-secondary/20 text-[10px] font-bold">
                                   <span className="material-symbols-outlined text-[12px] mr-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
@@ -862,6 +952,14 @@ function CommunityContent() {
                             <Share2 size={16} />
                             <span className="hidden sm:inline">Share</span>
                           </button>
+                          <button
+                            onClick={(e) => handleReport(e, post)}
+                            className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors rounded-lg px-2.5 py-1.5 hover:bg-amber-500/10"
+                            title="Report this post"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">flag</span>
+                            <span className="hidden sm:inline">Report</span>
+                          </button>
                         </CardFooter>
 
                         {openCommentBoxes.has(post.id) && (
@@ -926,6 +1024,19 @@ function CommunityContent() {
                       </Link>
                     </CardContent>
                   </Card>
+                )}
+
+                {!loading && sortedPosts.length > 0 && hasMorePosts && (
+                  <div className="flex justify-center pt-2">
+                    <Button
+                      variant="outline"
+                      onClick={loadMorePosts}
+                      disabled={loadingMorePosts}
+                      className="rounded-full border-outline-variant/30"
+                    >
+                      {loadingMorePosts ? "Loading..." : "Load More"}
+                    </Button>
+                  </div>
                 )}
               </div>
 
@@ -1096,6 +1207,12 @@ function CommunityContent() {
           </div>
         </main>
       </div>
+
+      <AppToast
+        visible={Boolean(toast)}
+        message={toast?.message || ""}
+        tone={toast?.tone || "info"}
+      />
     </>
   );
 }

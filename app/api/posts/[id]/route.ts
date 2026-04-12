@@ -28,9 +28,9 @@ export async function GET(
     // Check if id looks like a UUID (36 chars with dashes) or slug
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     
-    const query = supabase
-      .from('posts')
-      .select('*, profiles(id, name, avatar_url)');
+      const query = supabase
+        .from('posts')
+        .select('*, profiles:profiles!posts_author_id_fkey(id, name, avatar_url)');
     
     if (isUUID) {
       query.eq('id', id);

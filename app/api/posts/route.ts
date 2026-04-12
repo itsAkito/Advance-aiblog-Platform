@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getAuthUserId } from '@/lib/auth-helpers';
 import { logActivity } from '@/lib/activity-log';
 import { cacheGet, cacheSet } from '@/lib/cache';
+import { revalidateCommunityTags } from '@/lib/revalidation';
 
 // Sanitize user input for PostgREST filter strings
 function sanitizeFilterInput(input: string): string {
@@ -145,7 +146,7 @@ export async function GET(request: NextRequest) {
     const canSeeUnpublished = isAdmin || isOwnContentRequest;
     let query = supabase
       .from('posts')
-      .select('*, profiles(id, name, avatar_url)', { count: 'exact' });
+      .select('*, profiles:profiles!posts_author_id_fkey(id, name, avatar_url)', { count: 'exact' });
 
     if (published) {
       query = query.eq('status', 'published');
@@ -190,7 +191,7 @@ export async function GET(request: NextRequest) {
 
       let fallbackQuery = supabase
         .from('posts')
-        .select('*, profiles(id, name, avatar_url)', { count: 'exact' });
+        .select('*, profiles:profiles!posts_author_id_fkey(id, name, avatar_url)', { count: 'exact' });
 
       if (published) {
         fallbackQuery = fallbackQuery.eq('status', 'published');
@@ -232,7 +233,7 @@ export async function GET(request: NextRequest) {
     if (error && isMissingApprovalColumn(error)) {
       let noApprovalQuery = supabase
         .from('posts')
-        .select('*, profiles(id, name, avatar_url)', { count: 'exact' });
+        .select('*, profiles:profiles!posts_author_id_fkey(id, name, avatar_url)', { count: 'exact' });
 
       if (published || !canSeeUnpublished) {
         noApprovalQuery = noApprovalQuery.eq('status', 'published');
@@ -501,6 +502,8 @@ export async function POST(request: NextRequest) {
         aiGenerated: isAiGenerated,
       },
     });
+
+    revalidateCommunityTags();
 
     try {
       const { data: adminProfiles } = await supabase
